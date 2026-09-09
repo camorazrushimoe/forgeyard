@@ -3,7 +3,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, current_project, factory_root, fy_do, render_status, Exit, FY_HELP,
+    bind_project, current_project, factory_root, fy_do, render_status, run_wizard, Exit, FY_HELP,
+    LiveProbe,
 };
 
 fn main() -> ExitCode {
@@ -16,15 +17,9 @@ fn main() -> ExitCode {
             Exit::Ok.into()
         }
         Some("bind") => match args.first() {
-            None => {
-                eprintln!("usage: fy bind <github-url>");
-                Exit::Usage.into()
-            }
+            None => { eprintln!("usage: fy bind <github-url>"); Exit::Usage.into() }
             Some(url) => match bind_project(&root, url) {
-                Ok(p) => {
-                    println!("{}/{}", p.owner, p.repo);
-                    Exit::Ok.into()
-                }
+                Ok(p) => { println!("{}/{}", p.owner, p.repo); Exit::Ok.into() }
                 Err(e) => fail(&e),
             },
         },
@@ -40,25 +35,26 @@ fn main() -> ExitCode {
                 return Exit::Usage.into();
             }
             match fy_do(&root, &url, &text) {
-                Ok(line) => {
-                    println!("{line}");
-                    Exit::Ok.into()
-                }
+                Ok(line) => { println!("{line}"); Exit::Ok.into() }
+                Err(e) => fail(&e),
+            }
+        }
+        Some("onboard") => {
+            let stdin = io::stdin();
+            let mut input = stdin.lock();
+            let mut out = io::stdout();
+            let mut err = io::stderr();
+            match run_wizard(&root, &LiveProbe, &mut input, &mut out, &mut err) {
+                Ok(()) => Exit::Ok.into(),
                 Err(e) => fail(&e),
             }
         }
         Some("status") => {
             let project = args.first().cloned().or_else(|| current_project(&root).ok());
             match project {
-                None => {
-                    eprintln!("usage: fy status <project>");
-                    Exit::Usage.into()
-                }
+                None => { eprintln!("usage: fy status <project>"); Exit::Usage.into() }
                 Some(p) => match render_status(&root, &p) {
-                    Ok(block) => {
-                        print!("{block}");
-                        Exit::Ok.into()
-                    }
+                    Ok(block) => { print!("{block}"); Exit::Ok.into() }
                     Err(e) => fail(&e),
                 },
             }
