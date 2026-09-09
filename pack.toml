@@ -29,6 +29,7 @@ skills = [
 [role.qa]
 file = "roles/qa.md"
 skills = [
+  "qa-on-cluster",
   "qa-report",
   "diagnosing-bugs",
   "code-review",
@@ -36,8 +37,15 @@ skills = [
   "git-branch-discipline",
 ]
 
-# First workflow: only tech-pm + adversarial-review is legal.
 [workflow.spec-review]
 role = "tech-pm"
 skills = ["adversarial-review"]
 require_spec = true
+
+[workflow.implement-ticket]
+# watch drives this; developer does not merge or deploy
+
+[workflow.qa-gate]
+role = "qa"
+skills = ["qa-on-cluster"]
+require_pr = true
