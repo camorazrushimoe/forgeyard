@@ -1,13 +1,11 @@
 //! Shared kernel for `fy`, `forge`, `watch`, and `yard`.
-//!
-//! Disk writes and the watch machine land in later issues. This crate is the
-//! typed vocabulary the binaries share.
 
 pub mod bind;
 pub mod envelope;
 pub mod error;
 pub mod events;
 pub mod hook;
+pub mod intake;
 pub mod lock;
 pub mod paths;
 pub mod project;
@@ -22,6 +20,7 @@ pub use error::{Exit, ForgeError, Result};
 pub use envelope::build_envelope;
 pub use events::{append_event, new_run_id, Event};
 pub use hook::{hook_start, hook_stop, StartOpts};
+pub use intake::fy_do;
 pub use runner::{forge_run, RunOpts, RunOutcome};
 pub use lock::{events_lock_path, state_lock_path, FileLock};
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
