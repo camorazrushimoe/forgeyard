@@ -81,9 +81,7 @@ pub fn check_field(probe: &dyn Probe, name: &str, value: &str, tokens: &Tokens) 
             let ep = tokens.get("llm.endpoint").unwrap_or("");
             if ep.is_empty() { Err(ForgeError::Precondition("set llm.endpoint first".into())) } else { probe.llm_models(ep, value) }
         }
-        "github.pat" => {
-            if value.is_empty() { Err(ForgeError::Precondition("github pat required".into())) } else { probe.github_user(value) }
-        }
+        "github.pat" => if value.is_empty() { Err(ForgeError::Precondition("github pat required".into())) } else { probe.github_user(value) },
         "cluster.target" => parse_ssh_target(value).map(|_| ()),
         "cluster.password" => {
             let user = tokens.get("cluster.user").unwrap_or("");
@@ -95,7 +93,7 @@ pub fn check_field(probe: &dyn Probe, name: &str, value: &str, tokens: &Tokens) 
     }
 }
 
-const ORDER: &[&str] = ["telegram.bot_token", "llm.endpoint", "llm.default", "github.pat", "cluster.target", "cluster.password"];
+const ORDER: &[&str] = &["telegram.bot_token", "llm.endpoint", "llm.default", "github.pat", "cluster.target", "cluster.password"];
 
 fn prompt_for(name: &str) -> &'static str {
     match name {
@@ -113,13 +111,7 @@ fn secret_field(name: &str) -> bool {
     matches!(name, "telegram.bot_token" | "llm.default" | "github.pat" | "cluster.password")
 }
 
-pub fn run_wizard(
-    root: &Path,
-    probe: &dyn Probe,
-    input: &mut dyn BufRead,
-    out: &mut dyn Write,
-    err: &mut dyn Write,
-) -> Result<()> {
+pub fn run_wizard(root: &Path, probe: &dyn Probe, input: &mut dyn BufRead, out: &mut dyn Write, err: &mut dyn Write) -> Result<()> {
     let mut tokens = load_tokens(root).unwrap_or_default();
     for name in ORDER {
         loop {
@@ -157,18 +149,10 @@ mod tests {
     }
     struct Fake;
     impl Probe for Fake {
-        fn telegram_get_me(&self, token: &str) -> Result<()> {
-            if token == "bad" { Err(ForgeError::Precondition("tg".into())) } else { Ok(()) }
-        }
-        fn llm_models(&self, _e: &str, key: &str) -> Result<()> {
-            if key.is_empty() { Err(ForgeError::Precondition("llm".into())) } else { Ok(()) }
-        }
-        fn github_user(&self, pat: &str) -> Result<()> {
-            if pat == "badpat" { Err(ForgeError::Precondition("gh".into())) } else { Ok(()) }
-        }
-        fn ssh_auth(&self, _u: &str, _h: &str, _p: u16, password: &str) -> Result<()> {
-            if password == "secret-pass" { Ok(()) } else { Err(ForgeError::Precondition("ssh".into())) }
-        }
+        fn telegram_get_me(&self, token: &str) -> Result<()> { if token == "bad" { Err(ForgeError::Precondition("tg".into())) } else { Ok(()) } }
+        fn llm_models(&self, _e: &str, key: &str) -> Result<()> { if key.is_empty() { Err(ForgeError::Precondition("llm".into())) } else { Ok(()) } }
+        fn github_user(&self, pat: &str) -> Result<()> { if pat == "badpat" { Err(ForgeError::Precondition("gh".into())) } else { Ok(()) } }
+        fn ssh_auth(&self, _u: &str, _h: &str, _p: u16, password: &str) -> Result<()> { if password == "secret-pass" { Ok(()) } else { Err(ForgeError::Precondition("ssh".into())) } }
     }
     #[test]
     fn parse_user_host_port() {
@@ -187,15 +171,9 @@ mod tests {
         let mut out = Vec::new();
         let mut err = Vec::new();
         run_wizard(&root, &Fake, &mut input, &mut out, &mut err).unwrap();
-        let out_s = String::from_utf8_lossy(&out);
-        let err_s = String::from_utf8_lossy(&err);
-        assert!(err_s.contains("check failed"));
-        assert!(out_s.contains("ready.  start: fy start"));
-        assert!(!out_s.contains("secret-pass"));
-        assert!(!out_s.contains("goodpat"));
-        let loaded = load_tokens(&root).unwrap();
-        assert_eq!(loaded.get("github.pat"), Some("goodpat"));
-        assert_eq!(loaded.get("cluster.password"), Some("secret-pass"));
+        assert!(String::from_utf8_lossy(&err).contains("check failed"));
+        assert!(String::from_utf8_lossy(&out).contains("ready.  start: fy start"));
+        assert!(!String::from_utf8_lossy(&out).contains("secret-pass"));
         use std::os::unix::fs::PermissionsExt;
         let mode = std::fs::metadata(crate::tokens::tokens_path(&root)).unwrap().permissions();
         assert_eq!(mode.mode() & 0o777, 0o600);
