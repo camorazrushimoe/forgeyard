@@ -6,6 +6,7 @@ Install on a laptop should feel like one command: binaries + pack (roles, skills
 
 | piece | kind | job |
 |---|---|---|
+| `fy` | human CLI | onboard, start, help, bind |
 | `forge` | static Rust CLI | bind GitHub project, spec gate, hooks, envelope, event log |
 | `yard` | static Rust daemon | Telegram control panel |
 | `watch` | static Rust loop | deterministic scenario driver (no LLM) |
@@ -14,7 +15,7 @@ Install on a laptop should feel like one command: binaries + pack (roles, skills
 
 There is **one** Pi process per run. Role is chosen per session: `tech-pm`, `developer`, or `qa`.
 
-Merge gate: developer opens a PR from a feature branch; QA deploys that branch to the dev cluster and writes `Verdict: merge` or `Verdict: no-merge`; `watch` merges only on `merge`.
+Laptop is the control plane. Application code is edited and run on the SSH **dev cluster** ([spec/cluster.md](spec/cluster.md)). Merge gate: developer pushes a feature branch and opens a PR; QA checks out that sha on the same host and writes `Verdict: merge` or `Verdict: no-merge`; `watch` merges only on `merge`.
 
 No Hermes. No Redis. No Linear. No DevOps role.
 
@@ -72,20 +73,19 @@ flowchart TD
 
 ### C. Implement ticket — main loop
 
-Feature branch → PR into main. Developer does not merge and does not deploy.
-QA deploys that branch to the dev cluster and writes the merge gate on the PR.
+Feature branch → PR into main. Developer works on the cluster clone. QA tests the PR sha on the same host.
 Watch merges only on `Verdict: merge`.
 
 ```mermaid
 flowchart TD
-  ready["item ready"] --> dev["watch starts developer\nimplement on feature/issue-slug"]
+  ready["item ready"] --> dev["watch starts developer\nimplement on cluster clone"]
   dev --> pr{open PR into main?}
   pr -->|no / crash| retryDev["retry same step"]
   retryDev --> capDev{retry cap?}
   capDev -->|no| dev
   capDev -->|yes| blocked["blocked / human"]
-  pr -->|yes| qa["watch starts qa\nqa-on-cluster"]
-  qa --> deploy["QA deploys PR branch\nto dev cluster and tests"]
+  pr -->|yes| qa["watch starts qa\nsame host, PR sha"]
+  qa --> deploy["QA checks out sha and tests"]
   deploy --> verdict{PR comment}
   verdict -->|Verdict: no-merge| dev
   verdict -->|crash| retryQa["retry QA"]
@@ -123,6 +123,9 @@ flowchart TD
 
 - [SPEC.md](SPEC.md) — kernel
 - [spec/watch.md](spec/watch.md) — watcher + scenarios A–E
+- [spec/cluster.md](spec/cluster.md) — laptop vs SSH workbench
+- [spec/cli.md](spec/cli.md) — `fy` commands
+- [spec/onboard.md](spec/onboard.md) — secrets wizard
 - [spec/telegram-panel.md](spec/telegram-panel.md) — `yard`
 - [spec/tokens.md](spec/tokens.md) — secrets
 - [spec/pi-runner.md](spec/pi-runner.md) — how Pi is wrapped
