@@ -1,0 +1,43 @@
+# Factory pack shipped next to the binaries.
+# Roles are files. Skills are files. Pi is the only runner.
+
+schema = 1
+name = "forgeyard-dev"
+roles = ["tech-pm", "developer", "qa"]
+runner = "pi"
+
+[role.tech-pm]
+file = "roles/tech-pm.md"
+skills = [
+  "adversarial-review",
+  "to-spec",
+  "triage",
+  "domain-modeling",
+]
+
+[role.developer]
+file = "roles/developer.md"
+skills = [
+  "implement",
+  "tdd",
+  "code-review",
+  "codebase-design",
+  "git-branch-discipline",
+  "resolving-merge-conflicts",
+]
+
+[role.qa]
+file = "roles/qa.md"
+skills = [
+  "qa-report",
+  "diagnosing-bugs",
+  "code-review",
+  "tdd",
+  "git-branch-discipline",
+]
+
+# First workflow: only tech-pm + adversarial-review is legal.
+[workflow.spec-review]
+role = "tech-pm"
+skills = ["adversarial-review"]
+require_spec = true
