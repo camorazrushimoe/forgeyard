@@ -3,10 +3,12 @@
 //! Disk writes and the watch machine land in later issues. This crate is the
 //! typed vocabulary the binaries share.
 
+pub mod bind;
 pub mod error;
 pub mod paths;
 pub mod types;
 
+pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
 pub use types::{Agent, AgentStatus, Hook};

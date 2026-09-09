@@ -2,7 +2,7 @@ use std::env;
 use std::io::{self, Write};
 use std::process::ExitCode;
 
-use forgeyard_core::{print_not_implemented, Exit};
+use forgeyard_core::{bind_project, factory_root, print_not_implemented, Exit};
 
 const FORGE_HELP: &str = "\
 forge — forgeyard kernel
@@ -24,6 +24,22 @@ fn main() -> ExitCode {
             let _ = write!(io::stdout(), "{FORGE_HELP}");
             Exit::Ok.into()
         }
+        Some("bind") => match args.next() {
+            None => {
+                eprintln!("usage: forge bind <github-url>");
+                Exit::Usage.into()
+            }
+            Some(url) => match bind_project(&factory_root(), &url) {
+                Ok(p) => {
+                    println!("bound {}/{}", p.owner, p.repo);
+                    Exit::Ok.into()
+                }
+                Err(e) => {
+                    eprintln!("{e}");
+                    e.exit().into()
+                }
+            },
+        },
         Some(other) => {
             print_not_implemented("forge", other);
             let _ = write!(io::stderr(), "{FORGE_HELP}");
