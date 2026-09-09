@@ -1,205 +1,93 @@
 # Watch
 
-`watch` is a deterministic loop. No LLM inside it.
-It reads `plan.json`, `state.json`, `events.jsonl`, and GitHub.
-If a transition is legal, it calls `forge run` or merges the PR itself.
+Deterministic loop. No LLM.
+Reads `inbox.md`, `plan.json`, `state.json`, `events.jsonl`, GitHub.
+Calls `forge run` or merges the PR. Never SSHes. Never parses model prose for facts.
 
-Where code is edited and run: [spec/cluster.md](cluster.md).
-Watch does not SSH. It only requires artifacts (PR URL, verdict line, `hook stop`).
+Where code lives: [cluster.md](cluster.md).
+How a PR is proven: [github-facts.md](github-facts.md).
+How push happens: [github-auth.md](github-auth.md).
+QA command: [qa-command.md](qa-command.md).
 
-## Who merges, who deploys
+## Merge gate
 
-- Developer never merges `main`/`master`.
-- Every ticket is a **feature branch** → **PR into main**.
-- Developer works on the **dev cluster** clone (create branch, edit, run, push, open PR).
-- When the PR exists, watch starts **QA** on the **same host**, same clone, PR sha.
-- Only `Verdict: merge` from QA lets watch merge on GitHub.
-- `Verdict: no-merge` sends the same ticket back to developer on the same branch/PR.
-- After merge, the ticket is `done`. Watch picks the next ready item.
+Developer never merges. QA never merges.
+Developer commits on the host; laptop pushes and opens the PR.
+Watch starts QA only when GitHub shows an open PR for the item branch.
+QA runs `make qa` on that sha via SSH (Pi on the laptop).
+Latest PR comment line `Verdict: merge` | `Verdict: no-merge` wins
+(older verdicts in the thread are ignored).
+Watch merges on GitHub only on `merge`.
 
-## Artifacts watch trusts
+## Artifacts
 
-| fact | how it is proven |
+| fact | proof |
 |---|---|
-| spec present | `spec.md` non-empty |
-| spec accepted | GitHub comment with `Verdict: approve` from a `tech-pm` run |
-| plan exists | `projects/<repo>/plan.json` valid |
-| PR open | `artifact` is a PR URL and GitHub says `open` |
-| QA merge gate | PR comment contains exactly one line `Verdict: merge` or `Verdict: no-merge` |
-| merged | GitHub PR `merged == true` |
-| run finished | `events.jsonl` `hook=stop` for the live `run_id` |
+| work queued | `inbox.md` after `fy do` |
+| spec present | `spec.md` non-empty (project dir or fetched from repo) |
+| spec accepted | latest tech-pm `Verdict: approve` |
+| plan exists | valid `plan.json` |
+| PR open | `gh pr list --head <branch>` returns one open PR |
+| QA gate | latest `Verdict: merge` or `no-merge` on that PR |
+| merged | GitHub `merged == true` |
+| run finished | `hook=stop` for live `run_id` |
 
-No artifact → the step did not happen.
+## plan.json item status
 
-## plan.json
+`ready | implementing | pr_open | qa_running | no_merge | merging | merged | done | blocked`
 
-```json
-{
-  "schema": 1,
-  "project": "my-app",
-  "spec": "spec.md",
-  "source": "https://github.com/owner/my-app/issues/14",
-  "items": [
-    {
-      "id": "T1",
-      "issue": 21,
-      "title": "auth module",
-      "branch": "feature/21-auth",
-      "pr": null,
-      "needs": [],
-      "status": "ready"
-    }
-  ]
-}
-```
+One item in flight. Default branch = GitHub default (`main` or `master`), detected, not assumed.
 
-`status` on an item:
-
-```
-ready
-implementing
-pr_open
-qa_running
-no_merge
-merging
-merged
-done
-blocked
-```
-
-Watch writes `status`, `branch`, `pr`. Tech-pm writes the item list in scenario B.
-One item in flight per project (v0).
-
-## Item state machine (scenario C)
+## C machine
 
 ```text
-ready
-  -> forge run developer implement          # cwd = cluster clone
+ready / no_merge
+  -> forge run developer implement     # Pi laptop, files via SSH
   -> implementing
 
 implementing
-  -> stop ok + PR URL     -> pr_open
-  -> stop crash           -> retry implementing
-  -> retries exhausted    -> blocked
+  -> wrapper: fetch branch from host, push to GitHub, gh pr list
+  -> open PR     -> pr_open
+  -> no PR / crash -> retry (cap 3 crash, cap 5 implement↔no-merge) else blocked
 
 pr_open
-  -> forge run qa qa-on-cluster             # same host, fetch PR sha
+  -> forge run qa qa-on-cluster        # make qa on host sha
   -> qa_running
 
 qa_running
-  -> Verdict: merge       -> merging
-  -> Verdict: no-merge    -> no_merge
-  -> stop crash           -> retry qa_running
-
-no_merge
-  -> forge run developer implement          # same issue, branch, PR, cluster
-  -> implementing
+  -> latest Verdict: merge     -> merging
+  -> latest Verdict: no-merge  -> no_merge
+  -> crash -> retry QA
 
 merging
-  -> watch runs `gh pr merge` (no LLM)
-  -> merged on GitHub     -> done
-  -> merge failed         -> blocked
-
-done
-  -> pick next item whose needs are all done
+  -> watch: gh pr merge on laptop
+  -> merged -> done -> next item or D
 ```
-
-Developer may self-review inside the implement session. That is not a watch state.
-QA on the cluster **is** the merge gate.
-
-## Scenarios
-
-### 0. bind
-
-Input: GitHub URL. `forge bind`. No agent. Then A if `spec.md` exists, else blocked-on-spec.
-
-### A. spec-review
-
-1. `forge run --agent tech-pm --step adversarial_review`  (laptop project dir)
-2. Comment: `Verdict: approve | needs-changes | blocked`
-3. approve → B if more than one PR, else one-item plan and C
-4. needs-changes → wait for new spec.md, then A
-5. blocked → human
-
-### B. breakdown
-
-1. `forge run --agent tech-pm --step breakdown` (laptop)
-2. Artifact: valid `plan.json` plus GitHub issues
-3. First free item → C
-
-### C. implement-ticket
-
-See the state machine. Branch `feature/<issue>-<slug>` or `fix/`.
-First implement may `git clone` onto the host. No extra approve.
-
-QA comment:
-
-```
-## QA on cluster
-
-**Cluster:** <host>
-**Deployed sha:** <git sha>
-**Tests:** <short>
-Verdict: merge
-```
-
-Retry cap implement ↔ no-merge: 5. Then `blocked`.
-
-### D. plan-done
-
-All items `done`. Log `plan_done`. Optional tech-pm close comment. Idle.
-
-### E. bugfix
-
-Triage on laptop, then C on `fix/` branch, same cluster rules.
-
-### crash-retry and busy
-
-`stop=crash` → same step, new `run_id`. Cap 3 per step, then `blocked`.
-Busy → watch sleeps. One role at a time so the single clone stays consistent.
 
 ## Watch loop
 
 ```text
-loop every N seconds:
-  if project busy: continue
-  load plan.json + state.json + last stop event + GitHub PR
-
-  if no plan and spec unreviewed: run A
-  if spec approved and no plan: run B
+loop:
+  if busy: sleep
+  if inbox.md new and project unbound: bind from URL inside it
+  if no spec.md: blocked-on-spec (do not treat inbox text as spec)
+  if spec unreviewed: A
+  if approved and no plan: B or one-item plan
   if plan complete: D
-
-  item = first item with status not in {done, blocked} and needs done
-  match item.status:
-    ready / no_merge     -> run developer implement
-    implementing         -> if PR open: set pr_open
-    pr_open              -> run qa qa-on-cluster
-    qa_running           -> parse Verdict on the PR
-    merging              -> gh pr merge
-    else                 -> sleep
+  else drive current item through C
 ```
 
-## Illegal moves
+## Scenarios A–E
 
-- merge by developer or QA process
-- implement/QA on the laptop when cluster is configured
-- start QA before an open PR (unpushed work is invisible)
-- start implement without accepted spec (except triage in E)
-- two busy runs on one project
+Unchanged intent: A tech-pm review on laptop; B plan.json; C as above;
+D plan_done; E triage then C with `fix/`.
+
+## Illegal
+
+- merge by Pi
+- implement/QA without SSH when cluster is set
+- start QA before GitHub shows the PR
+- persist PAT on the host
+- two busy runs
 - invent plan items
-
-## Status line
-
-```
-plan:     T2/5
-item:     T2  qa_running  feature/22-billing  pr#18
-cluster:  deploy@203.0.113.10
-```
-
-## Non-goals
-
-- exact process manager on the host
-- exact test commands (skill `qa-on-cluster`)
-- extra bug issues from QA (v0: PR comment)
-- parallel tickets
-- production deploy
+- treat model text as the PR URL
