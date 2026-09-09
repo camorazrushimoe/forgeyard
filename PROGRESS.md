@@ -17,11 +17,11 @@ Handoff file so a new session can continue without rereading the whole chat.
 | # | title | state |
 |---|---|---|
 | 3 | v0 implementation tracker | open |
-| 4 | Cargo workspace + forgeyard-core skeleton | done (PR #19) |
-| 5 | Bind URL + PROJECT.toml | done (PR #20) |
-| 6 | state.json atomic write + flock | done (PR #21) |
-| 7 | events.jsonl + run_id | in this PR |
-| 8 | tokens.toml 0600 + meta | open |
+| 4 | workspace | done (PR #19) |
+| 5 | bind | done (PR #20) |
+| 6 | state.json | done (PR #21) |
+| 7 | events.jsonl | done (PR #22) |
+| 8 | tokens.toml 0600 + meta | in this PR |
 | 9 | byte-stable status block | open |
 | 10 | forge CLI surface | open |
 | 11 | hooks + envelope + forge run | open |
@@ -35,4 +35,4 @@ Handoff file so a new session can continue without rereading the whole chat.
 
 ## Current next after this PR merges
 
-Issue **#8** — tokens.toml 0600 + tokens.meta.toml.
+Issue **#9** — byte-stable status block.
