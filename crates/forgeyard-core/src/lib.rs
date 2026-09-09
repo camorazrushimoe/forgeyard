@@ -5,6 +5,7 @@
 
 pub mod bind;
 pub mod error;
+pub mod events;
 pub mod lock;
 pub mod paths;
 pub mod state;
@@ -12,6 +13,7 @@ pub mod types;
 
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
+pub use events::{append_event, new_run_id, Event};
 pub use lock::{events_lock_path, state_lock_path, FileLock};
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
 pub use state::{become_busy, become_idle, load_state, save_state, State};
