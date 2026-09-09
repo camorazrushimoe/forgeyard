@@ -1,0 +1,14 @@
+/target/
+**/*.rs.bk
+Cargo.lock
+.DS_Store
+
+# runtime factory data — never commit
+/factory/
+/data/
+
+# secrets
+tokens/tokens.toml
+yard.toml
+.env
+*.pem

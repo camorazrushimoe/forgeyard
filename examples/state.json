@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "project": "my-app",
+  "workflow": "spec-review",
+  "step": "review_in_progress",
+  "agent": "tech-pm",
+  "agent_status": "busy",
+  "run_id": "20260909T080012Z-ab12",
+  "input": "https://github.com/camorazrushimoe/my-app/issues/14",
+  "spec_path": "spec.md",
+  "updated_at": "2026-09-09T08:00:12Z"
+}

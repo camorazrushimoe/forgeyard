@@ -1,0 +1,7 @@
+project = "my-app"
+owner = "camorazrushimoe"
+repo = "my-app"
+source_url = "https://github.com/camorazrushimoe/my-app/issues/14"
+source_kind = "issue"
+source_ref = "14"
+bound_at = "2026-09-09T08:00:00Z"
