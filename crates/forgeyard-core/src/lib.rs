@@ -1,0 +1,29 @@
+//! Shared kernel for `fy`, `forge`, `watch`, and `yard`.
+//!
+//! Disk writes and the watch machine land in later issues. This crate is the
+//! typed vocabulary the binaries share.
+
+pub mod error;
+pub mod paths;
+pub mod types;
+
+pub use error::{Exit, ForgeError, Result};
+pub use paths::{default_factory_root, factory_root, install_root, project_dir};
+pub use types::{Agent, AgentStatus, Hook};
+
+/// Exact `fy help` text from spec/cli.md.
+pub const FY_HELP: &str = "\
+fy — forgeyard
+
+  fy help              this text
+  fy onboard           telegram, llm, github, ssh cluster
+  fy start             run watch + yard, print the event log
+  fy stop              stop a running fy start
+  fy status            same block as forge status
+  fy bind URL          attach a GitHub repo / issue / PR
+  fy do URL TEXT       queue work (see spec/intake.md)
+";
+
+pub fn print_not_implemented(bin: &str, rest: &str) {
+    eprintln!("{bin}: `{rest}` is not implemented yet");
+}
