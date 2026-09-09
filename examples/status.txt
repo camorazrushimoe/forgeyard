@@ -1,0 +1,11 @@
+forgeyard
+project:  my-app
+repo:     camorazrushimoe/my-app
+source:   issues/14
+workflow: spec-review
+step:     review_in_progress
+agent:    tech-pm  busy
+run:      20260909T080012Z-ab12
+spec:     present
+updated:  2026-09-09T08:00:12Z
+last:     start adversarial_review
