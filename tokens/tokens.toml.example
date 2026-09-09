@@ -1,13 +1,21 @@
 # Copy to tokens/tokens.toml (chmod 600). Never commit the real file.
-# yard and forge read this file. Telegram never receives raw values.
 
 [telegram]
 bot_token = ""
 allow_user_ids = [123456789]
 
 [llm]
-# names only appear in /tokens; values never leave this file
+endpoint = ""
 default = ""
 tech-pm = ""
-software-engineer = ""
+developer = ""
 qa = ""
+
+[github]
+pat = ""
+
+[cluster]
+host = ""
+user = ""
+port = 22
+password = ""

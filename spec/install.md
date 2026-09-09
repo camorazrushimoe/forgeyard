@@ -1,82 +1,50 @@
 # Install
 
-Goal: one command on a laptop installs the factory.
+Goal: one command on a Mac installs the factory files. Secrets come after, via `fy onboard`.
+
+v0 installer target: `darwin-arm64`. Linux later.
 
 ```
 curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/install.sh | sh
 ```
 
-Until `install.sh` exists, this file is the contract the script must implement.
+Until `install.sh` exists, this file is the contract.
 
-## What the command installs
-
-Three layers, one prefix (`$FORGEYARD_HOME`, default `~/.forgeyard`):
+## What lands on disk
 
 ```
 ~/.forgeyard/
-  bin/forge
-  bin/yard
+  bin/fy bin/forge bin/yard bin/watch
   pack/
-    pack.toml
-    roles/
-    skills/
-    AGENTS.md            # default instructions dropped into new checkouts
-  factory/               # runtime root (or FORGEYARD_ROOT)
-    tokens/tokens.toml   # created from example, mode 0600, empty values
+  factory/
+    tokens/tokens.toml     # created empty from example, never overwritten
     projects/
 ```
 
-Also on PATH (symlink into `~/.local/bin` or `/usr/local/bin`):
-`forge`, `yard`.
+PATH symlink: `fy` (and the internal bins if useful).
+Pi is installed if missing. Failure to install Pi does not fail `fy` itself; `fy start` then shows `runner: missing`.
 
-Pi is **not** vendored in the Rust binary. The installer runs the upstream Pi install if `pi` is missing:
-
-```
-curl -fsSL https://pi.dev/install.sh | sh
-```
-
-or `npm install -g --ignore-scripts @earendil-works/pi-coding-agent`.
-
-If Pi cannot be installed, `forge` and `yard` still install. `forge run` then fails with `runner_missing` until Pi is present. Status command must show `runner: missing`.
-
-## What is inside the binary vs outside
-
-| inside static musl binaries | outside, pulled as files |
-|---|---|
-| bind, hooks, envelope, log, tokens, status | `roles/*.md` |
-| yard Telegram poller | `skills/*/SKILL.md` |
-| pack.toml parser | `pack.toml` |
-| | `pi` executable |
-| | runtime `factory/` |
-
-Roles and skills must stay files. Editing a skill is a git commit to this repo, not a rebuild of `forge`.
-
-## Installer steps (normative)
-
-1. Detect os/arch. v0: `linux-x86_64` and `darwin-arm64`.
-2. Download `forge` and `yard` from GitHub Releases of this repo (when they exist). Until then, installer may build from source if Rust is present, or print `binaries not released yet`.
-3. Copy `pack/` from the same git ref as the binaries.
-4. Create `factory/tokens/tokens.toml` from the example if missing. Never overwrite an existing tokens file.
-5. Ensure `pi` on PATH or install it.
-6. Print next steps:
+End of installer, no questions:
 
 ```
-forge bind https://github.com/owner/repo
-# fill tokens: forge tokens set --name llm.default --from-stdin
-# optional: yard
+installed.
+
+next:
+  fy onboard
+  fy help
 ```
+
+## Human commands
+
+See [spec/cli.md](cli.md) and [spec/onboard.md](onboard.md).
+
+`fy start` follows `events.jsonl` in the foreground and starts `watch` + `yard`.
+It does not invent lines. Pretty-print of hook events only.
 
 ## Uninstall
 
 ```
-forge uninstall        # reserved
-# or
-rm -rf ~/.forgeyard ~/.local/bin/forge ~/.local/bin/yard
+rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.local/bin/watch
 ```
 
-Does not uninstall Pi (shared tool).
-
-## Version pin
-
-`~/.forgeyard/VERSION` records `forgeyard=<git-sha-or-tag>` and `pi=<pi --version>`.
-`forge version` prints both.
+Does not uninstall Pi.
