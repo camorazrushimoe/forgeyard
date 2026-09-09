@@ -1,23 +1,18 @@
 # Implementation progress
 
-Handoff file so a new session can continue without rereading the whole chat.
-
-## How to continue
+Handoff so a new session can continue.
 
 1. Open https://github.com/camorazrushimoe/forgeyard
-2. Read this file and issue **#3**
-3. Take the open issue labeled `next`
-4. Branch `impl/<n>-short` off `main`
-5. PR + adversarial review + merge
+2. Issue labeled `next`
+3. Branch, PR, adversarial review, merge
 
 ## Status
 
 | # | title | state |
 |---|---|---|
 | 3 | tracker | open |
-| 4–10 | kernel + forge CLI | done |
-| 11 | hooks + envelope + forge run | in this PR |
-| 12 | fy help/bind/do/status | open |
+| 4–11 | kernel + forge run | done |
+| 12 | fy help/bind/do/status | in this PR |
 | 13 | fy onboard | open |
 | 14 | watch A–E | open |
 | 15 | yard Telegram panel | open |
@@ -25,6 +20,4 @@ Handoff file so a new session can continue without rereading the whole chat.
 | 17 | install.sh + pack + README | open |
 | 18 | CI + darwin-arm64 artifacts | open |
 
-## Current next after this PR merges
-
-Issue **#12** — fy help/bind/do/status.
+Next after merge: **#13 fy onboard**.
