@@ -1,0 +1,18 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/forgeyard-core",
+    "crates/fy",
+    "crates/forge",
+    "crates/watch",
+    "crates/yard",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/camorazrushimoe/forgeyard"
+
+[workspace.dependencies]
+forgeyard-core = { path = "crates/forgeyard-core" }

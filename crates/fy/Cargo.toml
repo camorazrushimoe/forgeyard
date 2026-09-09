@@ -1,0 +1,9 @@
+[package]
+name = "fy"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Human CLI for Forgeyard"
+
+[dependencies]
+forgeyard-core = { workspace = true }

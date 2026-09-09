@@ -1,0 +1,9 @@
+[package]
+name = "yard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Forgeyard Telegram panel"
+
+[dependencies]
+forgeyard-core = { workspace = true }
