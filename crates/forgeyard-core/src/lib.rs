@@ -15,6 +15,7 @@ pub mod state;
 pub mod status;
 pub mod tokens;
 pub mod types;
+pub mod watch;
 
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
@@ -31,6 +32,7 @@ pub use state::{become_busy, become_idle, load_state, save_state, State};
 pub use status::render_status;
 pub use tokens::{list_rows, load_meta, load_tokens, save_tokens, Meta, Tokens, CANONICAL};
 pub use types::{Agent, AgentStatus, Hook};
+pub use watch::{tick, Action, Plan, WatchIo};
 
 pub const FY_HELP: &str = "\
 fy — forgeyard
