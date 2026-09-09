@@ -3,7 +3,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, factory_root, list_rows, load_meta, load_tokens, print_not_implemented, Exit,
+    bind_project, factory_root, list_rows, load_meta, load_tokens, print_not_implemented,
+    render_status, Exit,
 };
 
 const FORGE_HELP: &str = "\
@@ -42,6 +43,25 @@ fn main() -> ExitCode {
                 }
             },
         },
+        Some("status") => {
+            let project = args.next().or_else(|| std::env::var("FORGEYARD_PROJECT").ok());
+            match project {
+                None => {
+                    eprintln!("usage: forge status <project>");
+                    Exit::Usage.into()
+                }
+                Some(p) => match render_status(&factory_root(), &p) {
+                    Ok(block) => {
+                        print!("{block}");
+                        Exit::Ok.into()
+                    }
+                    Err(e) => {
+                        eprintln!("{e}");
+                        e.exit().into()
+                    }
+                },
+            }
+        }
         Some("tokens") => match load_tokens(&factory_root()) {
             Ok(t) => {
                 let meta = load_meta(&factory_root()).unwrap_or_default();
