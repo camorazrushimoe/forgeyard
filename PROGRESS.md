@@ -15,9 +15,8 @@ Handoff file so a new session can continue without rereading the whole chat.
 | # | title | state |
 |---|---|---|
 | 3 | tracker | open |
-| 4–9 | core kernel | done (#19–#24) |
-| 10 | forge CLI surface | in this PR |
-| 11 | hooks + envelope + forge run | open |
+| 4–10 | kernel + forge CLI | done |
+| 11 | hooks + envelope + forge run | in this PR |
 | 12 | fy help/bind/do/status | open |
 | 13 | fy onboard | open |
 | 14 | watch A–E | open |
@@ -28,4 +27,4 @@ Handoff file so a new session can continue without rereading the whole chat.
 
 ## Current next after this PR merges
 
-Issue **#11** — hooks + envelope + forge run.
+Issue **#12** — fy help/bind/do/status.

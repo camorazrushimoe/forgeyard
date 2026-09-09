@@ -4,11 +4,14 @@
 //! typed vocabulary the binaries share.
 
 pub mod bind;
+pub mod envelope;
 pub mod error;
 pub mod events;
+pub mod hook;
 pub mod lock;
 pub mod paths;
 pub mod project;
+pub mod runner;
 pub mod state;
 pub mod status;
 pub mod tokens;
@@ -16,7 +19,10 @@ pub mod types;
 
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
+pub use envelope::build_envelope;
 pub use events::{append_event, new_run_id, Event};
+pub use hook::{hook_start, hook_stop, StartOpts};
+pub use runner::{forge_run, RunOpts, RunOutcome};
 pub use lock::{events_lock_path, state_lock_path, FileLock};
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
 pub use project::{current_project, list_bound_projects, read_event_log, require_spec};
@@ -25,7 +31,6 @@ pub use status::render_status;
 pub use tokens::{list_rows, load_meta, load_tokens, save_tokens, Meta, Tokens, CANONICAL};
 pub use types::{Agent, AgentStatus, Hook};
 
-/// Exact `fy help` text from spec/cli.md.
 pub const FY_HELP: &str = "\
 fy — forgeyard
 
