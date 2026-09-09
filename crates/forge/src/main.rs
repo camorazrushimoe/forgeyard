@@ -2,7 +2,9 @@ use std::env;
 use std::io::{self, Write};
 use std::process::ExitCode;
 
-use forgeyard_core::{bind_project, factory_root, print_not_implemented, Exit};
+use forgeyard_core::{
+    bind_project, factory_root, list_rows, load_meta, load_tokens, print_not_implemented, Exit,
+};
 
 const FORGE_HELP: &str = "\
 forge — forgeyard kernel
@@ -39,6 +41,17 @@ fn main() -> ExitCode {
                     e.exit().into()
                 }
             },
+        },
+        Some("tokens") => match load_tokens(&factory_root()) {
+            Ok(t) => {
+                let meta = load_meta(&factory_root()).unwrap_or_default();
+                print!("{}", list_rows(&t, &meta));
+                Exit::Ok.into()
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                e.exit().into()
+            }
         },
         Some(other) => {
             print_not_implemented("forge", other);
