@@ -1,142 +1,132 @@
 # Forgeyard
 
-Deterministic kernel for a spec-driven AI software factory.
+Spec-driven AI software factory. Laptop is the remote. SSH host is the workbench.
+Watch is deterministic. Pi is the only LLM process. Three roles: tech-pm, developer, qa.
 
-Install on a laptop should feel like one command: binaries + pack (roles, skills) + Pi runner.
+**Status:** specification is v0-complete. Rust binaries and `install.sh` are next. Commands below are the contract the binaries must implement.
 
-| piece | kind | job |
-|---|---|---|
-| `fy` | human CLI | onboard, start, help, bind |
-| `forge` | static Rust CLI | bind GitHub project, spec gate, hooks, envelope, event log |
-| `yard` | static Rust daemon | Telegram control panel |
-| `watch` | static Rust loop | deterministic scenario driver (no LLM) |
-| `pi` | external harness | the one process that may read/write files and run bash |
-| pack | files in this repo | three roles + skills |
+## Test scenario (what you will run)
 
-There is **one** Pi process per run. Role is chosen per session: `tech-pm`, `developer`, or `qa`.
+1. You create a **separate** GitHub repo with `spec.md` in the root and a `Makefile` target `qa` (`make qa`).
+2. Do **not** turn on required approving reviews on that repo.
+3. Factory is installed and onboarded on a Mac. `fy start` is running.
+4. You type `fy do <repo-or-issue-url> implement the spec`.
+5. Watch: A review spec → (B if large) → C implement on the SSH host → laptop pushes PR → QA `make qa` on that sha → watch merges.
 
-Laptop is the control plane. Application code is edited and run on the SSH **dev cluster** ([spec/cluster.md](spec/cluster.md)). Merge gate: developer pushes a feature branch and opens a PR; QA checks out that sha on the same host and writes `Verdict: merge` or `Verdict: no-merge`; `watch` merges only on `merge`.
+That path is specified. It cannot run until `fy` exists. The spec does not have a remaining logic hole that would block that path.
 
-No Hermes. No Redis. No Linear. No DevOps role.
+## Install (Mac, Apple Silicon)
 
-## Watcher loops
+Need on the laptop: `git`, `ssh`, later `pi` and `gh` (installer should fetch `pi` if missing).
 
-`watch` has no LLM. It reads facts (`spec.md`, `plan.json`, PR, verdict line, event log) and starts the next legal `forge run`.
-Full contract: [spec/watch.md](spec/watch.md).
-
-### How the factory walks a spec
-
-```mermaid
-flowchart TD
-  bind["0 bind GitHub URL"] --> specExists{spec.md?}
-  specExists -->|no| humanSpec["human: put spec.md"]
-  humanSpec --> specExists
-  specExists -->|yes| A["A spec-review\ntech-pm"]
-  A -->|needs-changes| specExists
-  A -->|blocked| humanA["human"]
-  A -->|approve, small spec| oneItem["one-item plan"]
-  A -->|approve, large spec| B["B breakdown\ntech-pm writes plan.json + issues"]
-  B -->|no plan.json| B
-  B --> ready["first ready item"]
-  oneItem --> ready
-  ready --> C["C implement-ticket loop"]
-  C -->|item done, more items| ready
-  C -->|all items done| D["D plan-done"]
-  C -->|retries gone| humanC["human / blocked"]
+```sh
+curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/install.sh | sh
 ```
 
-### A. Spec review
+Until the script exists, that line is what it will do: drop `fy` / `forge` / `watch` / `yard` + pack into `~/.forgeyard`, put `fy` on PATH.
 
-```mermaid
-flowchart TD
-  spec["spec.md landed"] --> pm["watch starts tech-pm\nadversarial-review"]
-  pm --> comment["verdict on GitHub issue/PR"]
-  comment -->|Verdict: approve| next["B or one-item C"]
-  comment -->|Verdict: needs-changes| wait["wait for new spec.md"]
-  wait --> spec
-  comment -->|Verdict: blocked| human["human"]
+```text
+installed.
+
+next:
+  fy onboard
+  fy help
 ```
 
-### B. Breakdown
+## Onboard
 
-```mermaid
-flowchart TD
-  approved["spec approved"] --> size{bigger than one PR?}
-  size -->|no| single["tech-pm writes one-item plan.json"]
-  size -->|yes| pm["watch starts tech-pm\nbreakdown"]
-  pm --> plan["plan.json + GitHub issues T1..Tn"]
-  plan -->|missing plan.json| pm
-  plan --> first["watch marks first free item ready"]
-  single --> first
-  first --> C["C"]
+```sh
+fy onboard
 ```
 
-### C. Implement ticket — main loop
+One field at a time, tokens hidden:
 
-Feature branch → PR into main. Developer works on the cluster clone. QA tests the PR sha on the same host.
-Watch merges only on `Verdict: merge`.
+1. Telegram bot token (empty = skip yard)
+2. LLM endpoint — any OpenAI-compatible base URL  
+   examples: `https://openrouter.ai/api/v1`, `https://api.openai.com/v1`, `http://192.168.1.20:8080/v1`
+3. LLM token (dummy ok if the local server does not care)
+4. GitHub PAT (`repo`: issues, PRs, merge). Same account will open and merge PRs.
+5. SSH host (`user@host` or `user@host:port`)
+6. SSH password
 
-```mermaid
-flowchart TD
-  ready["item ready"] --> dev["watch starts developer\nimplement on cluster clone"]
-  dev --> pr{open PR into main?}
-  pr -->|no / crash| retryDev["retry same step"]
-  retryDev --> capDev{retry cap?}
-  capDev -->|no| dev
-  capDev -->|yes| blocked["blocked / human"]
-  pr -->|yes| qa["watch starts qa\nsame host, PR sha"]
-  qa --> deploy["QA checks out sha and tests"]
-  deploy --> verdict{PR comment}
-  verdict -->|Verdict: no-merge| dev
-  verdict -->|crash| retryQa["retry QA"]
-  retryQa --> qa
-  verdict -->|Verdict: merge| merge["watch merges PR\nno LLM"]
-  merge -->|github merged| done["item done"]
-  merge -->|merge failed| blocked
-  done --> more{next item with deps done?}
-  more -->|yes| ready
-  more -->|no, plan finished| D["D plan-done"]
+Secrets land in `~/.forgeyard/factory/tokens/tokens.toml` mode 0600. Never in the event log.
+
+## Use
+
+Two terminals.
+
+```sh
+# terminal 1 — keep open; this is the factory heartbeat
+fy start
 ```
 
-### D. Plan done
+```sh
+# terminal 2 — give work
+fy do https://github.com/YOU/toy implement the spec.md in this repo
 
-```mermaid
-flowchart TD
-  allDone["every item done"] --> log["watch writes plan_done"]
-  log --> optional["optional tech-pm close comment\non the source issue"]
-  optional --> idle["project idle"]
+# or an issue
+fy do https://github.com/YOU/toy/issues/1 do this ticket against the spec
 ```
 
-### E. Bugfix
+`fy do` does not call the LLM. It binds the project, writes `inbox.md`, appends the log. Watch picks it up.
 
-Same C loop. Different entrance and branch prefix (`fix/` instead of `feature/`).
+Other commands:
+
+```text
+fy help
+fy status
+fy stop
+fy bind URL     # attach without a prompt; fy do is enough for the first run
+```
+
+Telegram `/status` is optional. First runs should use the terminal.
+
+## What the factory expects from your project repo
+
+| file | why |
+|---|---|
+| `spec.md` | without it watch stays blocked-on-spec |
+| `Makefile` with `qa` | QA runs `make qa` on the cluster checkout |
+| default branch unprotected by required reviews | watch merges with your PAT |
+
+On the SSH host the clone will appear at `/srv/forgeyard/<repo-name>/repo/` (created on first implement).
+
+## How a job moves
 
 ```mermaid
-flowchart TD
-  bug["GitHub issue labeled bug"] --> triage["watch starts tech-pm\ntriage"]
-  triage -->|needs-info / wontfix| human["human"]
-  triage -->|ready| item["one plan item"]
-  item --> C["C on fix/issue-slug"]
+flowchart LR
+  do["fy do URL + text"] --> A["A tech-pm reviews spec"]
+  A -->|needs-changes| spec["you fix spec.md"]
+  spec --> A
+  A -->|approve| C["C feature branch on SSH host"]
+  C --> push["laptop git push + PR"]
+  push --> qa["QA make qa on that sha"]
+  qa -->|no-merge| C
+  qa -->|merge| m["watch merges on GitHub"]
 ```
+
+Pi stays on the Mac. It only SSHes into the workbench. GitHub PAT never written to the server.
+
+## Pieces
+
+| piece | job |
+|---|---|
+| `fy` | what you type |
+| `forge` | hooks, envelope, spec gate, log |
+| `watch` | state machine, no LLM |
+| `yard` | Telegram |
+| `pi` | one session per run |
 
 ## Spec map
 
 - [SPEC.md](SPEC.md) — kernel
-- [spec/watch.md](spec/watch.md) — watcher + scenarios A–E
-- [spec/cluster.md](spec/cluster.md) — laptop vs SSH workbench
-- [spec/cli.md](spec/cli.md) — `fy` commands
-- [spec/onboard.md](spec/onboard.md) — secrets wizard
-- [spec/telegram-panel.md](spec/telegram-panel.md) — `yard`
-- [spec/tokens.md](spec/tokens.md) — secrets
-- [spec/pi-runner.md](spec/pi-runner.md) — how Pi is wrapped
-- [spec/install.md](spec/install.md) — one-command install
-- [spec/roles-and-skills.md](spec/roles-and-skills.md) — pack layout
-- [roles/](roles/) — three role files
-- [skills/](skills/) — factory skills
-
-## Status
-
-Specification + pack files. Rust binaries and `install.sh` come next.
+- [spec/watch.md](spec/watch.md) — A–E
+- [spec/intake.md](spec/intake.md) — `fy do`
+- [spec/onboard.md](spec/onboard.md) / [spec/cli.md](spec/cli.md) / [spec/install.md](spec/install.md)
+- [spec/cluster.md](spec/cluster.md) / [spec/github-auth.md](spec/github-auth.md) / [spec/github-facts.md](spec/github-facts.md)
+- [spec/llm.md](spec/llm.md) / [spec/qa-command.md](spec/qa-command.md)
+- [spec/adversarial-review-v0.md](spec/adversarial-review-v0.md)
+- [roles/](roles/) [skills/](skills/)
 
 ## License
 
