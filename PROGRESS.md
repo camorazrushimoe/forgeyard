@@ -5,24 +5,22 @@ Handoff file so a new session can continue without rereading the whole chat.
 ## How to continue
 
 1. Open https://github.com/camorazrushimoe/forgeyard
-2. Read this file and issue **#3** (v0 implementation tracker)
-3. Take the open issue labeled `next` (or the lowest numbered open `impl` issue)
-4. Branch `impl/<issue-number>-short-name` off `main`
-5. Implement only that issue
-6. Open a PR, write an **adversarial review** comment against SPEC.md + spec/*
-7. Merge on `Verdict: approve`. Close the issue. Move the `next` label forward
+2. Read this file and issue **#3**
+3. Take the open issue labeled `next`
+4. Branch `impl/<n>-short` off `main`
+5. PR + adversarial review + merge
 
 ## Status
 
 | # | title | state |
 |---|---|---|
-| 3 | v0 implementation tracker | open |
-| 4 | workspace | done (PR #19) |
-| 5 | bind | done (PR #20) |
-| 6 | state.json | done (PR #21) |
-| 7 | events.jsonl | done (PR #22) |
-| 8 | tokens.toml 0600 + meta | in this PR |
-| 9 | byte-stable status block | open |
+| 3 | tracker | open |
+| 4 | workspace | done (#19) |
+| 5 | bind | done (#20) |
+| 6 | state.json | done (#21) |
+| 7 | events.jsonl | done (#22) |
+| 8 | tokens | done (#23) |
+| 9 | status block | in this PR |
 | 10 | forge CLI surface | open |
 | 11 | hooks + envelope + forge run | open |
 | 12 | fy help/bind/do/status | open |
@@ -35,4 +33,4 @@ Handoff file so a new session can continue without rereading the whole chat.
 
 ## Current next after this PR merges
 
-Issue **#9** — byte-stable status block.
+Issue **#10** — forge CLI surface.
