@@ -17,8 +17,8 @@ Handoff file so a new session can continue without rereading the whole chat.
 | # | title | state |
 |---|---|---|
 | 3 | v0 implementation tracker | open |
-| 4 | Cargo workspace + forgeyard-core skeleton | in this PR |
-| 5 | Bind URL + PROJECT.toml | open |
+| 4 | Cargo workspace + forgeyard-core skeleton | done (PR #19) |
+| 5 | Bind URL + PROJECT.toml | in this PR |
 | 6 | state.json atomic write + flock | open |
 | 7 | events.jsonl + run_id | open |
 | 8 | tokens.toml 0600 + meta | open |
@@ -35,4 +35,4 @@ Handoff file so a new session can continue without rereading the whole chat.
 
 ## Current next after this PR merges
 
-Issue **#5** — Bind: parse GitHub URLs, write PROJECT.toml, rebound = exit 3.
+Issue **#6** — state.json atomic write + flock busy lock.
