@@ -15,7 +15,7 @@ Watch is deterministic. Pi is the only LLM process. Three roles: tech-pm, develo
 
 ## Install (Mac, Apple Silicon)
 
-Need on the laptop: `git`, `ssh`. `gh` and `pi` later. The installer tries to fetch `pi` if missing; that failure does not fail `fy`.
+Need on the laptop: `git`, `ssh`, `gh`. Pi is separate (see below). Missing Pi does not fail `fy` install; `forge run` then exits `runner_missing`.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/install.sh | sh
@@ -56,6 +56,22 @@ rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.loca
 ```
 
 Does not uninstall Pi.
+
+## Install Pi (required for `forge run`)
+
+Official docs: https://pi.dev/docs/latest/quickstart
+
+```sh
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+```
+
+or
+
+```sh
+curl -fsSL https://pi.dev/install.sh | sh
+```
+
+Check: `command -v pi`. Forgeyard talks to Pi with `pi -p --mode json` and `OPENAI_BASE_URL` / `OPENAI_API_KEY` from onboard.
 
 ## Onboard
 
@@ -105,7 +121,7 @@ fy bind URL
 | `Makefile` with `qa` | QA runs `make qa` on the cluster checkout |
 | default branch unprotected by required reviews | watch merges with your PAT |
 
-On the SSH host the clone will appear at `/srv/forgeyard/<repo-name>/repo/` (created on first implement).
+On the SSH host the clone lives at `/srv/forgeyard/<repo-name>/repo/` (`pack/bootstrap-host.sh`).
 
 ## Pieces
 
