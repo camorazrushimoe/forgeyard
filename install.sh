@@ -11,6 +11,7 @@ BIN_SRC="${FORGEYARD_BIN_SRC:-}"
 PACK_SRC="${FORGEYARD_PACK_SRC:-}"
 ARCH="${FORGEYARD_ARCH:-}"
 SKIP_PI="${SKIP_PI:-0}"
+PI_DOCS="https://pi.dev/docs/latest/quickstart"
 
 if [ -z "$ARCH" ]; then
   u=$(uname -s | tr 'A-Z' 'a-z')
@@ -44,7 +45,6 @@ elif [ -d "$(dirname "$0")/dist/$ARCH" ]; then
 elif [ -d "./dist/$ARCH" ]; then
   copy_bins "./dist/$ARCH"
 else
-  # GitHub Releases: latest tagged asset pack, optional.
   url="https://github.com/$REPO/releases/latest/download/forgeyard-$ARCH.tar.gz"
   tmp=$(mktemp -d)
   if command -v curl >/dev/null 2>&1 && curl -fsSL "$url" -o "$tmp/pack.tgz" 2>/dev/null; then
@@ -81,10 +81,9 @@ for b in fy forge yard watch; do
 done
 
 if [ "$SKIP_PI" != "1" ] && ! command -v pi >/dev/null 2>&1; then
-  echo "note: pi not on PATH; attempting optional install (failure is ok)"
-  if command -v brew >/dev/null 2>&1; then
-    brew install pi >/dev/null 2>&1 || true
-  fi
+  echo "runner: missing; install pi from $PI_DOCS" >&2
+  echo "  npm install -g --ignore-scripts @earendil-works/pi-coding-agent" >&2
+  echo "  or: curl -fsSL https://pi.dev/install.sh | sh" >&2
 fi
 
 cat <<'EOF'
