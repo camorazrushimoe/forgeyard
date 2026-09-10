@@ -1,0 +1,25 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  darwin-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo build --release --workspace
+      - name: pack
+        run: |
+          mkdir -p pack-bin
+          for b in fy forge yard watch; do cp "target/release/$b" pack-bin/; done
+          tar -C pack-bin -czf forgeyard-darwin-arm64.tar.gz fy forge yard watch
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: forgeyard-darwin-arm64.tar.gz
+          generate_release_notes: true
