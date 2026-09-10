@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
-    current_project, dispatch_action, factory_root, list_bound_projects, load_state, project_dir,
-    tick, Action, Agent, Exit, Plan, WatchExec, WatchIo,
+    current_project, dispatch_action, factory_root, list_bound_projects, load_state, tick, Action,
+    Agent, Exit, GhWatchIo, Plan, RealGh, WatchExec,
 };
 
 struct ShellExec;
@@ -27,21 +27,11 @@ impl WatchExec for ShellExec {
 
 fn tick_one(root: &std::path::Path, p: &str) -> Action {
     let busy = load_state(root, p).map(|s| s.is_busy()).unwrap_or(false);
-    let spec_ok = std::fs::read_to_string(project_dir(root, p).join("spec.md"))
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false);
-    struct Io { busy: bool, spec: bool }
-    impl WatchIo for Io {
-        fn busy(&self) -> bool { self.busy }
-        fn spec_present(&self) -> bool { self.spec }
-        fn spec_verdict(&self) -> Option<forgeyard_core::watch::SpecVerdict> { None }
-        fn pr_open(&self, _: &str) -> bool { false }
-        fn pr_verdict(&self, _: &str) -> Option<forgeyard_core::watch::PrVerdict> { None }
-        fn default_branch(&self) -> String { "main".into() }
-    }
+    let gh = RealGh;
+    let io = GhWatchIo::live(root, p, busy, &gh);
     let mut plan = forgeyard_core::watch::load_plan(root, p)
         .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
-    let act = tick(&mut plan, &Io { busy, spec: spec_ok });
+    let act = tick(&mut plan, &io);
     dispatch_action(&act, &plan, p, &mut ShellExec);
     let _ = forgeyard_core::watch::save_plan(root, p, &plan);
     act
