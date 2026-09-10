@@ -5,6 +5,7 @@ pub mod daemon;
 pub mod envelope;
 pub mod error;
 pub mod events;
+pub mod gh_facts;
 pub mod hook;
 pub mod intake;
 pub mod lock;
@@ -25,6 +26,7 @@ pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind}
 pub use error::{Exit, ForgeError, Result};
 pub use envelope::build_envelope;
 pub use events::{append_event, new_run_id, Event};
+pub use gh_facts::{GhWatchIo, RealGh};
 pub use hook::{hook_start, hook_stop, StartOpts};
 pub use intake::fy_do;
 pub use runner::{forge_run, RunOpts, RunOutcome};
