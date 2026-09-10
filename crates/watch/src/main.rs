@@ -3,8 +3,9 @@ use std::io::{self, Write};
 use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
-    current_project, dispatch_action, factory_root, list_bound_projects, load_state, tick, Action,
-    Agent, Exit, GhWatchIo, Plan, RealGh, WatchExec,
+    current_project, dispatch_action, factory_root, list_bound_projects, load_binding, load_state,
+    publish_after_implement, tick, Action, Agent, Exit, GhWatchIo, LivePublisher, Plan, RealGh,
+    WatchExec,
 };
 
 struct ShellExec;
@@ -33,6 +34,16 @@ fn tick_one(root: &std::path::Path, p: &str) -> Action {
         .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
     let act = tick(&mut plan, &io);
     dispatch_action(&act, &plan, p, &mut ShellExec);
+    if let Action::RunImplement { item } = &act {
+        if let Some(b) = load_binding(root, p) {
+            let repo = format!("{}/{}", b.owner, b.repo);
+            let branch = plan.items.iter().find(|i| i.id == *item).map(|i| i.branch.as_str()).unwrap_or("");
+            let base = if plan.default_branch.is_empty() { "main" } else { plan.default_branch.as_str() };
+            if !branch.is_empty() {
+                let _ = publish_after_implement(&mut LivePublisher, &repo, branch, base);
+            }
+        }
+    }
     let _ = forgeyard_core::watch::save_plan(root, p, &plan);
     act
 }
