@@ -3,8 +3,30 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    current_project, factory_root, load_state, project_dir, tick, Action, Exit, Plan, WatchIo,
+    current_project, factory_root, list_bound_projects, load_state, project_dir, tick, Action, Exit,
+    Plan, WatchIo,
 };
+
+fn tick_one(root: &std::path::Path, p: &str) -> Action {
+    let busy = load_state(root, p).map(|s| s.is_busy()).unwrap_or(false);
+    let spec_ok = std::fs::read_to_string(project_dir(root, p).join("spec.md"))
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
+    struct Io { busy: bool, spec: bool }
+    impl WatchIo for Io {
+        fn busy(&self) -> bool { self.busy }
+        fn spec_present(&self) -> bool { self.spec }
+        fn spec_verdict(&self) -> Option<forgeyard_core::watch::SpecVerdict> { None }
+        fn pr_open(&self, _: &str) -> bool { false }
+        fn pr_verdict(&self, _: &str) -> Option<forgeyard_core::watch::PrVerdict> { None }
+        fn default_branch(&self) -> String { "main".into() }
+    }
+    let mut plan = forgeyard_core::watch::load_plan(root, p)
+        .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
+    let act = tick(&mut plan, &Io { busy, spec: spec_ok });
+    let _ = forgeyard_core::watch::save_plan(root, p, &plan);
+    act
+}
 
 fn main() -> ExitCode {
     let args: Vec<String> = env::args().skip(1).collect();
@@ -20,25 +42,22 @@ fn main() -> ExitCode {
                 eprintln!("usage: watch tick <project>");
                 return Exit::Usage.into();
             };
-            let busy = load_state(&root, &p).map(|s| s.is_busy()).unwrap_or(false);
-            let spec_ok = std::fs::read_to_string(project_dir(&root, &p).join("spec.md"))
-                .map(|s| !s.trim().is_empty())
-                .unwrap_or(false);
-            struct Io { busy: bool, spec: bool }
-            impl WatchIo for Io {
-                fn busy(&self) -> bool { self.busy }
-                fn spec_present(&self) -> bool { self.spec }
-                fn spec_verdict(&self) -> Option<forgeyard_core::watch::SpecVerdict> { None }
-                fn pr_open(&self, _: &str) -> bool { false }
-                fn pr_verdict(&self, _: &str) -> Option<forgeyard_core::watch::PrVerdict> { None }
-                fn default_branch(&self) -> String { "main".into() }
-            }
-            let mut plan = forgeyard_core::watch::load_plan(&root, &p)
-                .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
-            let act = tick(&mut plan, &Io { busy, spec: spec_ok });
-            let _ = forgeyard_core::watch::save_plan(&root, &p, &plan);
+            let act = tick_one(&root, &p);
             println!("{act:?}");
             if matches!(act, Action::BlockedOnSpec) { Exit::Precondition.into() } else { Exit::Ok.into() }
+        }
+        Some("loop") => {
+            let root = factory_root();
+            loop {
+                if let Ok(names) = list_bound_projects(&root) {
+                    for p in names {
+                        let _ = tick_one(&root, &p);
+                    }
+                }
+                if env::var("FORGEYARD_WATCH_ONCE").ok().as_deref() == Some("1") { break; }
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+            Exit::Ok.into()
         }
         Some(other) => {
             eprintln!("watch: `{other}` is not implemented yet");

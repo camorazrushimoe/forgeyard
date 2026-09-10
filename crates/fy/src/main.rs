@@ -3,8 +3,9 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, current_project, factory_root, fy_do, render_status, run_wizard, runner_missing,
-    start_children, stop_daemons, Exit, FY_HELP, LiveProbe,
+    bind_project, current_project, drain_hook_lines, factory_root, fy_do, list_bound_projects,
+    project_dir, render_status, run_wizard, runner_missing, start_children, stop_daemons, Exit,
+    FY_HELP, LiveProbe,
 };
 
 fn main() -> ExitCode {
@@ -49,7 +50,22 @@ fn main() -> ExitCode {
                     if env::var("FORGEYARD_START_ONCE").ok().as_deref() == Some("1") {
                         return Exit::Ok.into();
                     }
-                    loop { std::thread::sleep(std::time::Duration::from_secs(2)); }
+                    let mut offsets: std::collections::BTreeMap<std::path::PathBuf, u64> = Default::default();
+                    loop {
+                        if let Ok(names) = list_bound_projects(&root) {
+                            for n in names {
+                                let path = project_dir(&root, &n).join("events.jsonl");
+                                let off = *offsets.get(&path).unwrap_or(&0);
+                                let (new_off, lines) = drain_hook_lines(&path, off);
+                                offsets.insert(path, new_off);
+                                for line in lines { println!("{line}"); }
+                            }
+                        }
+                        if env::var("FORGEYARD_TAIL_ONCE").ok().as_deref() == Some("1") {
+                            return Exit::Ok.into();
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(400));
+                    }
                 }
                 Err(e) => fail(&e),
             }
