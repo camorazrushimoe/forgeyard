@@ -26,11 +26,7 @@ port = 22
 password = ""
 ```
 
-That is enough: address + username + password. The host OS can be Linux or macOS.
-
-The wrapper, not the model, feeds the password into SSH (sshpass / expect / `SSH_ASKPASS`). Pi only sees `ssh user@host …` working. Password is never printed and never written to `events.jsonl`.
-
-SSH keys are optional later. v0 does not require a key in `~/.ssh`.
+The wrapper, not the model, feeds the password into SSH. Password is never printed and never written to `events.jsonl`.
 
 Missing cluster config on implement/QA → `hook stop` `fail` `summary=cluster_missing`.
 Do not fall back to editing the app on the laptop.
@@ -41,11 +37,18 @@ Do not fall back to editing the app on the laptop.
 /srv/forgeyard/<project>/repo/
 ```
 
-First implement may `ssh … git clone` into that path.
+First implement may `ssh … git clone` into that path. One-time bootstrap (run on the host, or pipe over ssh):
+
+```sh
+sh pack/bootstrap-host.sh toy https://github.com/YOU/toy.git
+```
+
+`forge run` sets `FORGEYARD_REMOTE=/srv/forgeyard/<project>/repo` and `FORGEYARD_SSH=user@host:port` for Pi. Watch does not SSH.
 
 ## Roles
 
 Developer and QA: Pi on the laptop, all file/run/test via SSH into that clone.
 Tech-pm: laptop only.
+QA command on that tree: `make qa` (see qa-command.md).
 
 Unpushed bytes do not exist for QA or watch.
