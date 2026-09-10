@@ -3,8 +3,8 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, current_project, factory_root, fy_do, render_status, run_wizard, Exit, FY_HELP,
-    LiveProbe,
+    bind_project, current_project, factory_root, fy_do, render_status, run_wizard, runner_missing,
+    start_children, stop_daemons, Exit, FY_HELP, LiveProbe,
 };
 
 fn main() -> ExitCode {
@@ -39,6 +39,25 @@ fn main() -> ExitCode {
                 Err(e) => fail(&e),
             }
         }
+        Some("start") => {
+            if runner_missing() { println!("runner: missing"); }
+            let _ = std::fs::write(root.join("fy-start.pid"), format!("{}\n", std::process::id()));
+            match start_children(&root) {
+                Ok((w, y)) => {
+                    println!("watch pid {w}");
+                    if let Some(yp) = y { println!("yard pid {yp}"); } else { println!("yard skipped"); }
+                    if env::var("FORGEYARD_START_ONCE").ok().as_deref() == Some("1") {
+                        return Exit::Ok.into();
+                    }
+                    loop { std::thread::sleep(std::time::Duration::from_secs(2)); }
+                }
+                Err(e) => fail(&e),
+            }
+        }
+        Some("stop") => match stop_daemons(&root) {
+            Ok(()) => { println!("stopped"); Exit::Ok.into() }
+            Err(e) => fail(&e),
+        },
         Some("onboard") => {
             let stdin = io::stdin();
             let mut input = stdin.lock();

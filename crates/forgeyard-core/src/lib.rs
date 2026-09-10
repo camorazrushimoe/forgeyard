@@ -1,6 +1,7 @@
 //! Shared kernel for `fy`, `forge`, `watch`, and `yard`.
 
 pub mod bind;
+pub mod daemon;
 pub mod envelope;
 pub mod error;
 pub mod events;
@@ -18,6 +19,7 @@ pub mod tokens;
 pub mod types;
 pub mod watch;
 
+pub use daemon::{pretty_event_line, runner_missing, start_children, stop_daemons};
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
 pub use envelope::build_envelope;
