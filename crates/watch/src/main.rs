@@ -18,10 +18,12 @@ impl WatchExec for ShellExec {
             eprintln!("watch: forge run skipped ({project} {agent} {step})");
         }
     }
-    fn gh_merge(&mut self, _project: &str, branch: &str) {
-        let status = Command::new("gh").args(["pr", "merge", branch, "--merge"]).status();
+    fn gh_merge(&mut self, repo: &str, branch: &str) {
+        let status = Command::new("gh")
+            .args(["pr", "merge", "--repo", repo, branch, "--merge"])
+            .status();
         if status.is_err() {
-            eprintln!("watch: gh pr merge skipped ({branch})");
+            eprintln!("watch: gh pr merge skipped ({repo} {branch})");
         }
     }
 }
@@ -32,8 +34,11 @@ fn tick_one(root: &std::path::Path, p: &str) -> Action {
     let io = GhWatchIo::live(root, p, busy, &gh);
     let mut plan = forgeyard_core::watch::load_plan(root, p)
         .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
+    let repo = load_binding(root, p)
+        .map(|b| format!("{}/{}", b.owner, b.repo))
+        .unwrap_or_else(|| p.to_string());
     let act = tick(&mut plan, &io);
-    dispatch_action(&act, &plan, p, &mut ShellExec);
+    dispatch_action(&act, &plan, p, &repo, &mut ShellExec);
     if let Action::RunImplement { item } = &act {
         if let Some(b) = load_binding(root, p) {
             let repo = format!("{}/{}", b.owner, b.repo);

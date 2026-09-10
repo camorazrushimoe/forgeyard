@@ -9,7 +9,7 @@ pub enum ExecOp {
 
 pub trait WatchExec {
     fn forge_run(&mut self, project: &str, agent: Agent, step: &str);
-    fn gh_merge(&mut self, project: &str, branch: &str);
+    fn gh_merge(&mut self, repo: &str, branch: &str);
 }
 
 pub fn ops_for(action: &Action, plan: &Plan) -> Option<ExecOp> {
@@ -25,10 +25,10 @@ pub fn ops_for(action: &Action, plan: &Plan) -> Option<ExecOp> {
     }
 }
 
-pub fn dispatch(action: &Action, plan: &Plan, project: &str, exec: &mut dyn WatchExec) {
+pub fn dispatch(action: &Action, plan: &Plan, project: &str, repo: &str, exec: &mut dyn WatchExec) {
     match ops_for(action, plan) {
         Some(ExecOp::ForgeRun { agent, step }) => exec.forge_run(project, agent, step),
-        Some(ExecOp::GhMerge { branch }) => exec.gh_merge(project, &branch),
+        Some(ExecOp::GhMerge { branch }) => exec.gh_merge(repo, &branch),
         None => {}
     }
 }
@@ -42,8 +42,8 @@ impl WatchExec for RecordingExec {
     fn forge_run(&mut self, project: &str, agent: Agent, step: &str) {
         self.calls.push(format!("forge run --project {project} --agent {} --step {step}", agent.as_str()));
     }
-    fn gh_merge(&mut self, project: &str, branch: &str) {
-        self.calls.push(format!("gh pr merge --repo {project} {branch}"));
+    fn gh_merge(&mut self, repo: &str, branch: &str) {
+        self.calls.push(format!("gh pr merge --repo {repo} {branch} --merge"));
     }
 }
 
@@ -66,23 +66,24 @@ mod tests {
     fn implement_calls_forge_not_gh() {
         let p = plan();
         let mut ex = RecordingExec::default();
-        dispatch(&Action::RunImplement { item: "1".into() }, &p, "toy", &mut ex);
+        dispatch(&Action::RunImplement { item: "1".into() }, &p, "toy", "acme/toy", &mut ex);
         assert_eq!(ex.calls, vec!["forge run --project toy --agent developer --step implement"]);
     }
 
     #[test]
-    fn merge_calls_gh_not_forge() {
+    fn merge_uses_owner_repo() {
         let p = plan();
         let mut ex = RecordingExec::default();
-        dispatch(&Action::MergePr { item: "1".into() }, &p, "toy", &mut ex);
-        assert_eq!(ex.calls, vec!["gh pr merge --repo toy fy/main-1"]);
+        dispatch(&Action::MergePr { item: "1".into() }, &p, "toy", "acme/toy", &mut ex);
+        assert_eq!(ex.calls, vec!["gh pr merge --repo acme/toy fy/main-1 --merge"]);
+        assert!(ex.calls[0].contains("--repo acme/toy"));
     }
 
     #[test]
     fn sleep_is_noop() {
         let p = plan();
         let mut ex = RecordingExec::default();
-        dispatch(&Action::SleepBusy, &p, "toy", &mut ex);
+        dispatch(&Action::SleepBusy, &p, "toy", "acme/toy", &mut ex);
         assert!(ex.calls.is_empty());
     }
 }
