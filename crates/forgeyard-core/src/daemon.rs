@@ -66,9 +66,43 @@ fn spawn_cmd(cmd: &str, args: &[&str], root: &Path) -> Result<u32> {
     Ok(child.id())
 }
 
+fn resolve_bin(env_key: &str, name: &str, fallback: &str) -> (String, String) {
+    if let Ok(v) = std::env::var(env_key) {
+        let arg = std::env::var(env_key.replace("_BIN", "_ARG")).unwrap_or_else(|_| {
+            if name == "watch" { "loop".into() } else { "check".into() }
+        });
+        return (v, arg);
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            let cand = dir.join(name);
+            if cand.is_file() {
+                let arg = if name == "watch" { "loop" } else { "check" };
+                return (cand.to_string_lossy().into_owned(), arg.into());
+            }
+        }
+    }
+    if which(name) {
+        let arg = if name == "watch" { "loop" } else { "check" };
+        return (name.into(), arg.into());
+    }
+    (fallback.into(), "3600".into())
+}
+
+pub fn drain_hook_lines(path: &Path, offset: u64) -> (u64, Vec<String>) {
+    let Ok(data) = fs::read(path) else { return (offset, vec![]) };
+    if (data.len() as u64) <= offset { return (offset, vec![]); }
+    let chunk = &data[offset as usize..];
+    let text = String::from_utf8_lossy(chunk);
+    let mut lines = Vec::new();
+    for line in text.split('\n') {
+        if let Some(p) = pretty_event_line(line) { lines.push(p); }
+    }
+    (data.len() as u64, lines)
+}
+
 pub fn start_children(root: &Path) -> Result<(u32, Option<u32>)> {
-    let watch_bin = std::env::var("FORGEYARD_WATCH_BIN").unwrap_or_else(|_| "sleep".into());
-    let watch_arg = std::env::var("FORGEYARD_WATCH_ARG").unwrap_or_else(|_| "3600".into());
+    let (watch_bin, watch_arg) = resolve_bin("FORGEYARD_WATCH_BIN", "watch", "sleep");
     let wpid = spawn_cmd(&watch_bin, &[&watch_arg], root)?;
     write_pid(&watch_pid_path(root), wpid)?;
     let yard = {
@@ -76,8 +110,7 @@ pub fn start_children(root: &Path) -> Result<(u32, Option<u32>)> {
         let token = t.get("telegram.bot_token").map(|s| s.to_string())
             .or_else(|| std::env::var("TELEGRAM_BOT_TOKEN").ok().filter(|s| !s.is_empty()));
         if token.is_some() {
-            let yard_bin = std::env::var("FORGEYARD_YARD_BIN").unwrap_or_else(|_| "sleep".into());
-            let yard_arg = std::env::var("FORGEYARD_YARD_ARG").unwrap_or_else(|_| "3600".into());
+            let (yard_bin, yard_arg) = resolve_bin("FORGEYARD_YARD_BIN", "yard", "sleep");
             let ypid = spawn_cmd(&yard_bin, &[&yard_arg], root)?;
             write_pid(&yard_pid_path(root), ypid)?;
             Some(ypid)
@@ -128,5 +161,15 @@ mod tests {
     fn pretty_only_hook_lines() {
         assert!(pretty_event_line("{\"hook\":\"intake\"}").is_some());
         assert!(pretty_event_line("noise").is_none());
+    }
+    #[test]
+    fn drain_skips_noise() {
+        let root = tmp();
+        let p = root.join("events.jsonl");
+        fs::write(&p, "noise\n{\"hook\":\"intake\"}\n").unwrap();
+        let (off, lines) = drain_hook_lines(&p, 0);
+        assert_eq!(lines.len(), 1);
+        let (_, more) = drain_hook_lines(&p, off);
+        assert!(more.is_empty());
     }
 }
