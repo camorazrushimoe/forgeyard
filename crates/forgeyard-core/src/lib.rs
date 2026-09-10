@@ -1,6 +1,7 @@
 //! Shared kernel for `fy`, `forge`, `watch`, and `yard`.
 
 pub mod bind;
+pub mod cluster;
 pub mod daemon;
 pub mod envelope;
 pub mod error;
@@ -22,6 +23,7 @@ pub mod types;
 pub mod watch;
 pub mod watch_exec;
 
+pub use cluster::{bootstrap_commands, remote_path, ssh_target};
 pub use daemon::{drain_hook_lines, pretty_event_line, runner_missing, start_children, stop_daemons};
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
