@@ -1,0 +1,20 @@
+# copied to factory/tokens/tokens.toml on first install; never overwritten.
+[telegram]
+bot_token = ""
+allow_user_ids = []
+
+[llm]
+endpoint = ""
+default = ""
+tech-pm = ""
+developer = ""
+qa = ""
+
+[github]
+pat = ""
+
+[cluster]
+host = ""
+user = ""
+port = 22
+password = ""
