@@ -8,7 +8,7 @@ v0 installer target: `darwin-arm64`. Linux later.
 curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/install.sh | sh
 ```
 
-Until `install.sh` exists, this file is the contract.
+`install.sh` is in the repo. It copies bins from `FORGEYARD_BIN_SRC`, `dist/$ARCH`, or the latest GitHub Release tarball.
 
 ## What lands on disk
 
@@ -21,7 +21,7 @@ Until `install.sh` exists, this file is the contract.
     projects/
 ```
 
-PATH symlink: `fy` (and the internal bins if useful).
+PATH symlink: `fy` (and the internal bins) under `~/.local/bin` (`FORGEYARD_PREFIX`).
 Pi is installed if missing. Failure to install Pi does not fail `fy` itself; `fy start` then shows `runner: missing`.
 
 End of installer, no questions:
@@ -37,9 +37,6 @@ next:
 ## Human commands
 
 See [spec/cli.md](cli.md) and [spec/onboard.md](onboard.md).
-
-`fy start` follows `events.jsonl` in the foreground and starts `watch` + `yard`.
-It does not invent lines. Pretty-print of hook events only.
 
 ## Uninstall
 
