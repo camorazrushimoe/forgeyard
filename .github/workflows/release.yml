@@ -3,6 +3,12 @@ name: release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to create or update"
+        required: true
+        default: "v0.1.0"
 
 permissions:
   contents: write
@@ -21,5 +27,7 @@ jobs:
           tar -C pack-bin -czf forgeyard-darwin-arm64.tar.gz fy forge yard watch
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.tag || github.ref_name }}
           files: forgeyard-darwin-arm64.tar.gz
           generate_release_notes: true
