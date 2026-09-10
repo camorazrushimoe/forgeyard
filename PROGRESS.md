@@ -1,11 +1,11 @@
 # Implementation progress
 
-Next labeled `next` on https://github.com/camorazrushimoe/forgeyard
+Tracker: https://github.com/camorazrushimoe/forgeyard/issues/3
 
 | # | title | state |
 |---|---|---|
-| 4–16 | kernel through fy start/stop | done |
-| 17 | install.sh + pack + README | in this PR |
-| 18 | CI + darwin-arm64 artifacts | open |
+| 4–17 | kernel through install.sh | done |
+| 18 | CI + darwin-arm64 artifacts | in this PR |
 
-After merge: **#18 CI/release**.
+v0 implementation issues are complete after this merge.
+Fetch bins: GitHub Release asset `forgeyard-darwin-arm64.tar.gz` or Actions artifact of the same name.

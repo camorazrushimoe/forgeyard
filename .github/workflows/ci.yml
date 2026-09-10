@@ -1,0 +1,37 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo test
+        run: cargo test --workspace
+      - name: install.sh dry-run
+        run: sh scripts/check-install.sh
+
+  darwin-arm64:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: release build
+        run: cargo build --release --workspace
+      - name: pack
+        run: |
+          mkdir -p dist/darwin-arm64
+          for b in fy forge yard watch; do
+            cp "target/release/$b" "dist/darwin-arm64/$b"
+            chmod +x "dist/darwin-arm64/$b"
+          done
+          tar -C dist/darwin-arm64 -czf forgeyard-darwin-arm64.tar.gz fy forge yard watch
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forgeyard-darwin-arm64
+          path: forgeyard-darwin-arm64.tar.gz
