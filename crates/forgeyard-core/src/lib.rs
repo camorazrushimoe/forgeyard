@@ -18,6 +18,7 @@ pub mod status;
 pub mod tokens;
 pub mod types;
 pub mod watch;
+pub mod watch_exec;
 
 pub use daemon::{drain_hook_lines, pretty_event_line, runner_missing, start_children, stop_daemons};
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
@@ -37,6 +38,7 @@ pub use status::render_status;
 pub use tokens::{list_rows, load_meta, load_tokens, save_tokens, Meta, Tokens, CANONICAL};
 pub use types::{Agent, AgentStatus, Hook};
 pub use watch::{tick, Action, Plan, WatchIo};
+pub use watch_exec::{dispatch as dispatch_action, RecordingExec, WatchExec};
 
 pub const FY_HELP: &str = "\
 fy — forgeyard

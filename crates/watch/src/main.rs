@@ -1,11 +1,29 @@
 use std::env;
 use std::io::{self, Write};
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
-    current_project, factory_root, list_bound_projects, load_state, project_dir, tick, Action, Exit,
-    Plan, WatchIo,
+    current_project, dispatch_action, factory_root, list_bound_projects, load_state, project_dir,
+    tick, Action, Agent, Exit, Plan, WatchExec, WatchIo,
 };
+
+struct ShellExec;
+impl WatchExec for ShellExec {
+    fn forge_run(&mut self, project: &str, agent: Agent, step: &str) {
+        let status = Command::new("forge")
+            .args(["run", "--project", project, "--agent", agent.as_str(), "--step", step])
+            .status();
+        if status.is_err() {
+            eprintln!("watch: forge run skipped ({project} {agent} {step})");
+        }
+    }
+    fn gh_merge(&mut self, _project: &str, branch: &str) {
+        let status = Command::new("gh").args(["pr", "merge", branch, "--merge"]).status();
+        if status.is_err() {
+            eprintln!("watch: gh pr merge skipped ({branch})");
+        }
+    }
+}
 
 fn tick_one(root: &std::path::Path, p: &str) -> Action {
     let busy = load_state(root, p).map(|s| s.is_busy()).unwrap_or(false);
@@ -24,6 +42,7 @@ fn tick_one(root: &std::path::Path, p: &str) -> Action {
     let mut plan = forgeyard_core::watch::load_plan(root, p)
         .unwrap_or(Plan { default_branch: "main".into(), items: vec![] });
     let act = tick(&mut plan, &Io { busy, spec: spec_ok });
+    dispatch_action(&act, &plan, p, &mut ShellExec);
     let _ = forgeyard_core::watch::save_plan(root, p, &plan);
     act
 }
