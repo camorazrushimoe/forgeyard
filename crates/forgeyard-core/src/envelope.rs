@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::Path;
 
+use crate::cluster::remote_path;
 use crate::tokens::Tokens;
 use crate::types::Agent;
 
@@ -22,7 +23,7 @@ pub fn build_envelope(
         let user = tokens.get("cluster.user").unwrap_or("");
         let port = tokens.get("cluster.port").unwrap_or("22");
         s.push_str(&format!("ssh: {user}@{host}:{port}\n"));
-        s.push_str(&format!("remote: /srv/forgeyard/{project}/repo\n"));
+        s.push_str(&format!("remote: {}\n", remote_path(project)));
     } else {
         s.push_str("ssh: laptop\n");
     }
@@ -79,5 +80,6 @@ mod tests {
         let e = build_envelope("toy", Agent::Developer, "implement", "", &t, None);
         assert!(e.contains("remote: /srv/forgeyard/toy/repo"));
         assert!(e.contains("deploy@10.0.0.1"));
+        assert!(!e.contains("password"));
     }
 }
