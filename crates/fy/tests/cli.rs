@@ -49,3 +49,27 @@ fn do_writes_inbox_and_prints_queued() {
     let log = fs::read_to_string(root.join("projects/toy/events.jsonl")).unwrap();
     assert!(log.contains("intake"));
 }
+
+#[test]
+fn start_writes_pid_stop_kills() {
+    let root = tmp();
+    let o = Command::new(bin())
+        .args(["start"])
+        .env("FORGEYARD_ROOT", &root)
+        .env("FORGEYARD_START_ONCE", "1")
+        .env("FORGEYARD_WATCH_BIN", "sleep")
+        .env("FORGEYARD_WATCH_ARG", "60")
+        .env_remove("TELEGRAM_BOT_TOKEN")
+        .output()
+        .unwrap();
+    assert_eq!(o.status.code(), Some(0), "{}", String::from_utf8_lossy(&o.stderr));
+    let pid_s = fs::read_to_string(root.join("watch.pid")).unwrap();
+    let pid: u32 = pid_s.trim().parse().unwrap();
+    let alive = Command::new("kill").args(["-0", &pid.to_string()]).status().unwrap().success();
+    assert!(alive);
+    let stop = Command::new(bin()).args(["stop"]).env("FORGEYARD_ROOT", &root).output().unwrap();
+    assert_eq!(stop.status.code(), Some(0));
+    std::thread::sleep(std::time::Duration::from_millis(80));
+    let alive = Command::new("kill").args(["-0", &pid.to_string()]).status().unwrap().success();
+    assert!(!alive);
+}
