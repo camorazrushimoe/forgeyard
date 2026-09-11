@@ -1,8 +1,8 @@
 # Watch
 
 Deterministic loop. No LLM.
-Reads `inbox.md`, `plan.json`, `state.json`, `events.jsonl`, GitHub.
-Calls `forge run` or merges the PR. Never SSHes. Never parses model prose for facts.
+Reads `inbox.md`, cached `spec.md` + `spec-source.json`, `plan.json`, `state.json`, `events.jsonl`, validated run outcomes, and GitHub.
+Calls `forge run` or merges the PR. Never SSHes. Never parses arbitrary model prose for facts.
 
 Where code lives: [cluster.md](cluster.md).
 How a PR is proven: [github-facts.md](github-facts.md).
@@ -15,20 +15,20 @@ Developer never merges. QA never merges.
 Developer commits on the host; laptop pushes and opens the PR.
 Watch starts QA only when GitHub shows an open PR for the item branch.
 QA runs `make qa` on that sha via SSH (Pi on the laptop).
-Latest PR comment line `Verdict: merge` | `Verdict: no-merge` wins
-(older verdicts in the thread are ignored).
-Watch merges on GitHub only on `merge`.
+A validated QA `outcome.json` for that PR is the sole workflow verdict: `merge` permits merging and `no_merge` returns the item to implementation. The wrapper publishes the same result as a `Verdict: merge` or `Verdict: no-merge` PR comment for humans; it is audit-only and never parsed by watch. A missing or failed comment publication makes QA fail rather than creating conflicting truths.
+Watch merges on GitHub only on a validated `merge` outcome.
 
 ## Artifacts
 
 | fact | proof |
 |---|---|
 | work queued | `inbox.md` after `fy do` |
-| spec present | `spec.md` non-empty (project dir or fetched from repo) |
-| spec accepted | latest tech-pm `Verdict: approve` |
+| spec present | non-empty local cache whose `spec-source.json` identifies its repository branch, commit SHA, and content SHA-256 |
+| spec accepted | validated tech-pm `outcome.json` with `verdict=approve` for the current cached content SHA |
+| completed tech-pm run | `hook=stop status=ok` plus validated `runs/<run-id>/outcome.json` |
 | plan exists | valid `plan.json` |
 | PR open | `gh pr list --head <branch>` returns one open PR |
-| QA gate | latest `Verdict: merge` or `no-merge` on that PR |
+| QA gate | validated QA `outcome.json` for the current PR/head SHA; matching PR comment is audit-only |
 | merged | GitHub `merged == true` |
 | run finished | `hook=stop` for live `run_id` |
 
@@ -55,9 +55,9 @@ pr_open
   -> qa_running
 
 qa_running
-  -> latest Verdict: merge     -> merging
-  -> latest Verdict: no-merge  -> no_merge
-  -> crash -> retry QA
+  -> validated QA outcome merge    -> merging
+  -> validated QA outcome no_merge -> no_merge
+  -> crash / invalid outcome / comment publish failure -> retry QA
 
 merging
   -> watch: gh pr merge on laptop
@@ -70,9 +70,11 @@ merging
 loop:
   if busy: sleep
   if inbox.md new and project unbound: bind from URL inside it
-  if no spec.md: blocked-on-spec (do not treat inbox text as spec)
-  if spec unreviewed: A
-  if approved and no plan: B or one-item plan
+  refresh the repository spec cache at intake or when default-branch SHA changed
+  if no usable cached spec.md: blocked-on-spec (do not treat inbox text as spec)
+  if spec cache is stale: blocked-on-spec-refresh (no new workflow transition)
+  if latest tech-pm outcome is absent, invalid, needs_changes, or for another spec SHA: A
+  if approved for the current spec SHA and no plan: B or one-item plan
   if plan complete: D
   else drive current item through C
 ```
@@ -91,3 +93,5 @@ D plan_done; E triage then C with `fix/`.
 - two busy runs
 - invent plan items
 - treat model text as the PR URL
+- advance a workflow step solely because a Pi process exited 0
+- require an operator to copy a repository `spec.md` into the factory directory
