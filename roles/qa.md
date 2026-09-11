@@ -22,3 +22,13 @@ This session you gate the merge. You do not merge and you do not write the featu
 - Rewrite the spec.
 - Open extra issues for a failed gate (v0: stay on the PR).
 - Declare merge without a deploy + checks you actually ran.
+
+## Machine-readable outcome
+
+End the run with one JSON object (not markdown):
+
+```
+{"kind":"qa","pr":<number>,"verdict":"merge|no_merge","summary":"..."}
+```
+
+The wrapper publishes `Verdict: merge` or `Verdict: no-merge` on the PR. Watch reads `outcome.json`, not the comment.

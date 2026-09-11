@@ -24,3 +24,11 @@ You do not own the spec. You do not merge.
 - Treat the laptop as the source of truth for application files.
 - Merge the PR.
 - Change the spec instead of implementing it.
+
+## Machine-readable outcome
+
+End the run with one JSON object (not markdown):
+
+```
+{"kind":"implementation","branch":"<feature-branch>","summary":"..."}
+```

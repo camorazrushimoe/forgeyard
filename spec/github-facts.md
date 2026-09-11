@@ -10,4 +10,4 @@ gh pr list --repo owner/repo --head <branch> --state open --json url,number
 - none → implement did not finish; watch retries or blocks
 - never parse the model transcript for a PR number
 
-Same idea for the QA verdict: read the latest issue comment that contains a line `Verdict: merge` or `Verdict: no-merge`. Ignore the rest of the prose.
+QA merge gate: watch reads only a validated `runs/<run-id>/outcome.json` of kind `qa` for that PR (`verdict` = `merge` | `no_merge`). The wrapper also publishes `Verdict: merge` or `Verdict: no-merge` as a PR comment with the run ID. That comment is a human-visible audit trail and is never parsed by watch.
