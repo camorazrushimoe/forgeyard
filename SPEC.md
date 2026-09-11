@@ -31,11 +31,12 @@ I1. Project = GitHub repo name. `fy bind` / `fy do` / `forge bind`.
 I2. Hooks are process-level. Start before Pi, stop after Pi exits.
 I3. Every Pi prompt comes from `forge envelope` and contains the project name.
 I4. No implementation without a non-empty, locally cached `spec.md` (`forge require-spec`). For a bound repository, the cache is refreshed deterministically from the default branch before this gate; manual copying is never required.
-I5. Every role run has a bounded local execution record and, when its workflow requires a decision, a schema-validated structured outcome artifact. An exit code alone is not a workflow decision.
-I6. One append-only `events.jsonl` per project. No tokens, no full prompts.
-I7. One busy lock per project.
-I8. Pi runs on the laptop. Application git/run/test run on the SSH host.
-I9. GitHub PAT never written to the SSH host. Push and `gh` run on the laptop.
+I5. Every role run has a bounded local execution record and, when its workflow requires a decision, a schema-validated structured outcome artifact. An exit code alone is not a workflow decision. QA `outcome.json` is the merge-gate truth; its PR comment is audit-only.
+I6. A stale repository spec cache blocks every new workflow transition until a successful refresh.
+I7. One append-only `events.jsonl` per project. No tokens, no full prompts.
+I8. One busy lock per project.
+I9. Pi runs on the laptop. Application git/run/test run on the SSH host.
+I10. GitHub PAT never written to the SSH host. Push and `gh` run on the laptop.
 
 ## 4. Disk
 
