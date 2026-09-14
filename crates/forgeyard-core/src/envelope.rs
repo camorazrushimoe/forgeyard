@@ -44,6 +44,16 @@ pub fn build_envelope(
         s.push_str(task);
         s.push('\n');
     }
+
+    s.push_str("\n# outcome\n");
+    s.push_str("End with one JSON object. Do not wrap it in markdown.\n");
+    match agent {
+        Agent::TechPm => s.push_str("{\"kind\":\"spec_review\",\"spec_sha256\":\"<sha256 of spec.md>\",\"verdict\":\"approve|needs_changes\",\"summary\":\"...\"}\n"),
+        Agent::Developer => s.push_str("{\"kind\":\"implementation\",\"branch\":\"<branch>\",\"summary\":\"...\"}\n"),
+        Agent::Qa => s.push_str("{\"kind\":\"qa\",\"pr\":<number>,\"verdict\":\"merge|no_merge\",\"summary\":\"...\"}\n"),
+        _ => s.push_str("{\"kind\":\"implementation\",\"branch\":\"<branch>\",\"summary\":\"...\"}\n"),
+    }
+
     s
 }
 

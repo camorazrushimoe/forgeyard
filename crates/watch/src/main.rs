@@ -4,8 +4,8 @@ use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
     current_project, dispatch_action, factory_root, list_bound_projects, load_binding, load_state,
-    publish_after_implement, tick, Action, Agent, Exit, GhWatchIo, LivePublisher, Plan, RealGh,
-    WatchExec,
+    publish_after_implement, refresh_spec_cache, tick, Action, Agent, Exit, GhWatchIo, LivePublisher,
+    LiveSpecFetcher, Plan, RealGh, WatchExec,
 };
 
 struct ShellExec;
@@ -29,6 +29,7 @@ impl WatchExec for ShellExec {
 }
 
 fn tick_one(root: &std::path::Path, p: &str) -> Action {
+    let _ = refresh_spec_cache(root, p, &LiveSpecFetcher);
     let busy = load_state(root, p).map(|s| s.is_busy()).unwrap_or(false);
     let gh = RealGh;
     let io = GhWatchIo::live(root, p, busy, &gh);
@@ -69,7 +70,7 @@ fn main() -> ExitCode {
             };
             let act = tick_one(&root, &p);
             println!("{act:?}");
-            if matches!(act, Action::BlockedOnSpec) { Exit::Precondition.into() } else { Exit::Ok.into() }
+            if matches!(act, Action::BlockedOnSpec | Action::BlockedOnSpecRefresh) { Exit::Precondition.into() } else { Exit::Ok.into() }
         }
         Some("loop") => {
             let root = factory_root();

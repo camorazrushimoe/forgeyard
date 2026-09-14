@@ -2,7 +2,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::bind::{read_project_file, ProjectFile};
+use crate::outcome::{latest_qa_outcome, latest_spec_outcome};
 use crate::paths::project_dir;
+use crate::spec_cache::{load_spec_source, spec_cache_present, spec_cache_stale};
 use crate::watch::{PrVerdict, SpecVerdict, WatchIo};
 
 /// Last matching verdict line wins. Ignores the rest of the prose.
@@ -32,14 +34,12 @@ pub fn latest_pr_verdict(text: &str) -> Option<PrVerdict> {
     out
 }
 
-/// `gh pr list --json url,number` → open PR exists if the array is non-empty.
 pub fn pr_list_has_open(json: &str) -> bool {
     let t = json.trim();
     if t.is_empty() || t == "[]" || t == "null" { return false; }
     t.contains("\"url\"") || t.contains("\"number\"")
 }
 
-/// `gh repo view --json defaultBranchRef` or raw name.
 pub fn parse_default_branch(json: &str) -> String {
     let t = json.trim();
     if let Some(i) = t.find("\"name\"") {
@@ -75,7 +75,6 @@ impl GhRunner for RealGh {
     }
 }
 
-/// WatchIo backed by disk spec + gh stdout. No LLM.
 pub struct GhWatchIo<'a> {
     pub root: &'a Path,
     pub project: &'a str,
@@ -92,7 +91,7 @@ impl<'a> GhWatchIo<'a> {
         let (comments, pr_json, default_json) = if let Some(b) = bind {
             let repo = format!("{}/{}", b.owner, b.repo);
             let comments = gh.run(&["api", &format!("repos/{repo}/issues/comments"), "--paginate"]);
-            let pr_json = String::new(); // filled per-branch in pr_open
+            let pr_json = String::new();
             let default_json = gh.run(&["repo", "view", &repo, "--json", "defaultBranchRef"]);
             (comments, pr_json, default_json)
         } else {
@@ -102,15 +101,30 @@ impl<'a> GhWatchIo<'a> {
     }
 }
 
+fn parse_pr_number(json: &str) -> Option<u32> {
+    let pat = "\"number\"";
+    let i = json.find(pat)?;
+    let rest = json[i + pat.len()..].trim_start().strip_prefix(':')?.trim_start();
+    let n: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    n.parse().ok()
+}
+
 impl WatchIo for GhWatchIo<'_> {
     fn busy(&self) -> bool { self.busy }
-    fn spec_present(&self) -> bool {
-        std::fs::read_to_string(project_dir(self.root, self.project).join("spec.md"))
-            .map(|s| !s.trim().is_empty())
-            .unwrap_or(false)
-    }
+    fn spec_present(&self) -> bool { spec_cache_present(self.root, self.project) }
+    fn spec_stale(&self) -> bool { spec_cache_stale(self.root, self.project) }
     fn spec_verdict(&self) -> Option<SpecVerdict> {
-        latest_spec_verdict(&self.comments)
+        let sha = load_spec_source(self.root, self.project)
+            .map(|s| s.content_sha256)
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                std::fs::read_to_string(project_dir(self.root, self.project).join("spec.md"))
+                    .ok()
+                    .filter(|s| !s.trim().is_empty())
+                    .map(|s| crate::sha256::sha256_hex(s.as_bytes()))
+            })?;
+        latest_spec_outcome(self.root, self.project, &sha)
+            .or_else(|| latest_spec_verdict(&self.comments))
     }
     fn pr_open(&self, branch: &str) -> bool {
         if let Some(b) = load_binding(self.root, self.project) {
@@ -123,7 +137,8 @@ impl WatchIo for GhWatchIo<'_> {
         pr_list_has_open(&self.pr_json)
     }
     fn pr_verdict(&self, _branch: &str) -> Option<PrVerdict> {
-        latest_pr_verdict(&self.comments)
+        let pr = parse_pr_number(&self.pr_json);
+        latest_qa_outcome(self.root, self.project, pr).or_else(|| latest_pr_verdict(&self.comments))
     }
     fn default_branch(&self) -> String {
         parse_default_branch(&self.default_json)
@@ -173,7 +188,17 @@ mod tests {
     fn approve_plus_spec_seeds_plan_not_tech_pm() {
         let root = tmp();
         bind_project(&root, "https://github.com/acme/toy").unwrap();
-        fs::write(project_dir(&root, "toy").join("spec.md"), "# spec\n").unwrap();
+        let spec = "# spec\n";
+        fs::write(project_dir(&root, "toy").join("spec.md"), spec).unwrap();
+        let sha = crate::sha256::sha256_hex(spec.as_bytes());
+        fs::write(project_dir(&root, "toy").join("spec-source.json"), format!(
+            "{{\"owner\":\"acme\",\"repo\":\"toy\",\"branch\":\"main\",\"commit_sha\":\"abc\",\"fetched_at\":\"1\",\"content_sha256\":\"{sha}\",\"stale\":false,\"stale_reason\":\"\"}}"
+        )).unwrap();
+        let run = project_dir(&root, "toy").join("runs").join("20260101T000000Z-abcd");
+        fs::create_dir_all(&run).unwrap();
+        fs::write(run.join("outcome.json"), format!(
+            "{{\"kind\":\"spec_review\",\"spec_sha256\":\"{sha}\",\"verdict\":\"approve\",\"summary\":\"ok\"}}"
+        )).unwrap();
         let gh = ScriptGh {
             comments: "Verdict: approve\n".into(),
             pr: "[]".into(),

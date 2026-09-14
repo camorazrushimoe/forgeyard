@@ -73,6 +73,7 @@ pub enum PrVerdict { Merge, NoMerge }
 pub enum Action {
     SleepBusy,
     BlockedOnSpec,
+    BlockedOnSpecRefresh,
     RunTechPm,
     SeedPlan,
     RunImplement { item: String },
@@ -85,6 +86,7 @@ pub enum Action {
 pub trait WatchIo {
     fn busy(&self) -> bool;
     fn spec_present(&self) -> bool;
+    fn spec_stale(&self) -> bool;
     fn spec_verdict(&self) -> Option<SpecVerdict>;
     fn pr_open(&self, branch: &str) -> bool;
     fn pr_verdict(&self, branch: &str) -> Option<PrVerdict>;
@@ -94,6 +96,7 @@ pub trait WatchIo {
 pub fn tick(plan: &mut Plan, io: &dyn WatchIo) -> Action {
     if io.busy() { return Action::SleepBusy; }
     if !io.spec_present() { return Action::BlockedOnSpec; }
+    if io.spec_stale() { return Action::BlockedOnSpecRefresh; }
     match io.spec_verdict() {
         None | Some(SpecVerdict::Reject) => return Action::RunTechPm,
         Some(SpecVerdict::Approve) => {}
@@ -232,16 +235,17 @@ pub fn project_busy(root: &Path, project: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    struct Fake { busy: bool, spec: bool, verdict: Option<SpecVerdict>, pr: bool, pr_v: Option<PrVerdict>, def: String }
+    struct Fake { busy: bool, spec: bool, stale: bool, verdict: Option<SpecVerdict>, pr: bool, pr_v: Option<PrVerdict>, def: String }
     impl WatchIo for Fake {
         fn busy(&self) -> bool { self.busy }
         fn spec_present(&self) -> bool { self.spec }
+        fn spec_stale(&self) -> bool { self.stale }
         fn spec_verdict(&self) -> Option<SpecVerdict> { self.verdict }
         fn pr_open(&self, _b: &str) -> bool { self.pr }
         fn pr_verdict(&self, _b: &str) -> Option<PrVerdict> { self.pr_v }
         fn default_branch(&self) -> String { self.def.clone() }
     }
-    fn base() -> Fake { Fake { busy: false, spec: true, verdict: Some(SpecVerdict::Approve), pr: false, pr_v: None, def: "main".into() } }
+    fn base() -> Fake { Fake { busy: false, spec: true, stale: false, verdict: Some(SpecVerdict::Approve), pr: false, pr_v: None, def: "main".into() } }
     fn item(st: ItemStatus, cycles: u32) -> Plan {
         Plan { default_branch: "main".into(), items: vec![PlanItem { id: "1".into(), title: "t".into(), branch: "fy/main-1".into(), status: st, crashes: 0, cycles }] }
     }
@@ -265,4 +269,6 @@ mod tests {
     fn implement_cap_blocks() { let mut p = item(ItemStatus::Ready, 5); assert_eq!(tick(&mut p, &base()), Action::RetryBlocked { item: "1".into() }); }
     #[test]
     fn complete_plan_is_d() { let mut p = item(ItemStatus::Done, 1); assert_eq!(tick(&mut p, &base()), Action::PlanDone); }
+    #[test]
+    fn stale_cache_blocks() { let mut p = Plan { default_branch: "main".into(), items: vec![] }; let mut io = base(); io.stale = true; assert_eq!(tick(&mut p, &io), Action::BlockedOnSpecRefresh); }
 }

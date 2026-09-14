@@ -39,3 +39,13 @@ Non-blocking:
 
 Evaluation only. Do not redesign the product in the review.
 Post the review on the originating GitHub issue or PR.
+
+## Machine-readable outcome
+
+End the run with one JSON object (not markdown):
+
+```
+{"kind":"spec_review","spec_sha256":"<sha256 of the spec.md you reviewed>","verdict":"approve|needs_changes","summary":"..."}
+```
+
+Watch consumes that artifact. A `Verdict:` line on GitHub is optional commentary, not the gate.

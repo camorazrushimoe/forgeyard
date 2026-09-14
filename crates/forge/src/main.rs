@@ -3,9 +3,9 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, build_envelope, current_project, factory_root, forge_run, hook_start, hook_stop,
-    list_rows, load_meta, load_tokens, print_not_implemented, read_event_log, render_status,
-    require_spec, Agent, Exit, RunOpts, StartOpts,
+    bind_project, build_envelope, classify_stderr, current_project, factory_root, forge_run, hook_start, hook_stop,
+    list_rows, load_meta, load_tokens, print_not_implemented, read_event_log, refresh_spec_cache, render_status,
+    require_spec, validate_and_store, Agent, Exit, LiveSpecFetcher, RunOpts, StartOpts,
 };
 
 const FORGE_HELP: &str = "\
@@ -17,6 +17,9 @@ forge — forgeyard kernel
   forge envelope
   forge hook start | hook stop
   forge run --project P --agent ROLE --step STEP
+  forge outcome validate
+  forge provider-classify
+  forge spec-refresh
   forge status | log | tokens
 ";
 
@@ -107,6 +110,56 @@ fn main() -> ExitCode {
                     Ok(o) => {
                         println!("{} {}", o.status, o.summary);
                         if o.status == "ok" { Exit::Ok.into() } else { Exit::Precondition.into() }
+                    }
+                    Err(e) => fail(&e),
+                },
+            }
+        }
+        Some("outcome") => match args.first().map(|s| s.as_str()) {
+            Some("validate") => {
+                args.remove(0);
+                let project = flag(&mut args, "--project").or_else(|| current_project(&root).ok());
+                let run_id = flag(&mut args, "--run-id").unwrap_or_default();
+                let agent = flag(&mut args, "--agent").and_then(|s| s.parse().ok()).unwrap_or(Agent::TechPm);
+                let step = flag(&mut args, "--step").unwrap_or_else(|| "review".into());
+                let stdout_path = flag(&mut args, "--stdout");
+                match (project, stdout_path) {
+                    (Some(p), Some(path)) => {
+                        let stdout = match std::fs::read_to_string(&path) {
+                            Ok(s) => s,
+                            Err(e) => { eprintln!("{e}"); return Exit::Io.into(); }
+                        };
+                        match validate_and_store(&root, &p, &run_id, agent, &step, &stdout) {
+                            Ok(_) => { println!("ok"); Exit::Ok.into() }
+                            Err(_) => { eprintln!("outcome_invalid"); Exit::Precondition.into() }
+                        }
+                    }
+                    _ => usage("forge outcome validate --project P --run-id ID --agent ROLE --step STEP --stdout PATH"),
+                }
+            }
+            _ => usage("forge outcome validate"),
+        },
+        Some("provider-classify") => {
+            let path = flag(&mut args, "--stderr").or_else(|| args.first().cloned());
+            match path {
+                None => usage("forge provider-classify --stderr PATH"),
+                Some(path) => {
+                    let text = std::fs::read_to_string(&path).unwrap_or_default();
+                    match classify_stderr(&text) {
+                        Some(c) => { println!("{c}"); Exit::Ok.into() }
+                        None => Exit::Precondition.into(),
+                    }
+                }
+            }
+        }
+        Some("spec-refresh") => {
+            let project = args.first().cloned().or_else(|| current_project(&root).ok());
+            match project {
+                None => usage("forge spec-refresh <project>"),
+                Some(p) => match refresh_spec_cache(&root, &p, &LiveSpecFetcher) {
+                    Ok(src) => {
+                        println!("{} {} stale={}", src.branch, src.content_sha256, src.stale);
+                        if src.stale { Exit::Precondition.into() } else { Exit::Ok.into() }
                     }
                     Err(e) => fail(&e),
                 },
