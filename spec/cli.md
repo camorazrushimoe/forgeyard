@@ -1,6 +1,6 @@
 # Human CLI: `fy`
 
-The person types **`fy`**, not `forge` / `yard` / `watch`.
+The person types **`fy`**, not `forge` / `yard` / `watch` / `mcp`.
 
 ```
 fy help
@@ -20,8 +20,8 @@ fy do <github-url> <prompt...>
 fy — forgeyard
 
   fy help              this text
-  fy onboard           telegram, llm, github, ssh cluster
-  fy start             run watch + yard, print the event log
+  fy onboard           telegram, llm, github, ssh, optional mcp/ngrok
+  fy start             run watch + mcp + yard, print the event log
   fy stop              stop a running fy start
   fy status            same block as forge status
   fy bind URL          attach a GitHub repo / issue / PR
