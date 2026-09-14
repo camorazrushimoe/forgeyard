@@ -259,7 +259,7 @@ mod tests {
     static N: AtomicU64 = AtomicU64::new(0);
     fn tmp() -> std::path::PathBuf {
         let n = N.fetch_add(1, Ordering::SeqCst);
-        let p = env.temp_dir().join(format!("fy-spec-{}-{}", std::process::id(), n));
+        let p = env::temp_dir().join(format!("fy-spec-{}-{}", std::process::id(), n));
         let _ = fs::remove_dir_all(&p);
         fs::create_dir_all(&p).unwrap();
         p
