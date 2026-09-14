@@ -6,6 +6,47 @@ Failed check → repeat that field, do not restart the whole wizard.
 
 v0 target: Apple Silicon Mac. Writes `factory/tokens/tokens.toml` mode 0600.
 
+## Terminal UX
+
+The wizard is still a TTY (no TUI crate required in v0). It must not look like a raw dump of prompts.
+
+Rules:
+
+- Number every field as `n / N` (example: `3 / 9`). N is the total step count in this wizard version.
+- Print a blank line plus a separator line before each step (`─` × 40, or ASCII `-` if the locale is not UTF-8).
+- Color is optional and must degrade: if stdout is not a TTY or `NO_COLOR` / `TERM=dumb` is set, print plain text.
+- Palette when color is on (ANSI, no extra deps):
+  - step header / number — bold cyan
+  - why / hint / example — dim
+  - ok after a check — green
+  - retry after a failed check — yellow
+  - fatal / refused — red
+  - generated values notice (`generated mcp.bind_token`) — green, never the value
+- Secrets stay un-echoed even with color. Do not color the hidden input itself.
+- After a successful field: one short `ok` line, then the next separator. Do not reprint the previous secret.
+- Skip (empty optional field): `skipped` in dim, not an error color.
+- Done banner stays one block, green + bold if color is on:
+
+```
+ready.
+  start: fy start
+```
+
+Example shape (color omitted here):
+
+```
+────────────────────────────────────────
+3 / 9  LLM token
+why: OpenAI-compatible key for Pi
+check: GET {endpoint}/models
+
+llm.default:
+ok
+```
+
+Do not animate, do not clear the whole screen, do not depend on a terminal graphics library.
+Tests may set `NO_COLOR=1` and assert the numbered headers + separators exist.
+
 ## Steps
 
 1. Telegram bot token  
