@@ -23,6 +23,17 @@ That is the whole client setup. The agent must not get `ngrok.auth_token`.
 
 `ngrok.url` is not a secret. It is also not authentication. Anyone who finds the URL still needs the bearer.
 
+## What you type at onboard
+
+Yes: if you want agents from outside, onboard steps 8 and 9 are exactly
+
+- reserved URL (`ngrok.url`)
+- ngrok account token (`ngrok.auth_token`)
+
+Both optional. Both empty → local MCP only. URL without token (or token without URL) → tunnel skipped at `fy start`.
+
+Separately, step 7 is the MCP bearer. Empty generates one. That value is what you paste into the remote agent, not the ngrok token.
+
 ## Start behaviour
 
 If `ngrok.auth_token` and `ngrok.url` are both set:
