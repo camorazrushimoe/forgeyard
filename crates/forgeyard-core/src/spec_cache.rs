@@ -211,7 +211,7 @@ pub fn decode_spec_source(text: &str) -> Option<SpecSource> {
         content_sha256: json_str(text, "content_sha256").unwrap_or_default(),
         stale: text.contains("\"stale\":true"),
         stale_reason: json_str(text, "stale_reason").unwrap_or_default(),
-    )
+    })
 }
 
 fn json_str(text: &str, key: &str) -> Option<String> {
@@ -259,7 +259,7 @@ mod tests {
     static N: AtomicU64 = AtomicU64::new(0);
     fn tmp() -> std::path::PathBuf {
         let n = N.fetch_add(1, Ordering::SeqCst);
-        let p = env::temp_dir().join(format!("fy-spec-{}-{}", std::process::id(), n));
+        let p = env.temp_dir().join(format!("fy-spec-{}-{}", std::process::id(), n));
         let _ = fs::remove_dir_all(&p);
         fs::create_dir_all(&p).unwrap();
         p
