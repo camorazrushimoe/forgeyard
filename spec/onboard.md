@@ -32,6 +32,22 @@ v0 target: Apple Silicon Mac. Writes `factory/tokens/tokens.toml` mode 0600.
    Check: TCP + SSH auth with that user/host/password, timeout ~10s.  
    Do not log the password. Do not print it back.
 
+7. MCP bind token  
+   Why: every MCP request must present this bearer (local and remote).  
+   Empty → generate 32 random bytes hex and store as `mcp.bind_token`.  
+   Check if typed: length ≥ 16. Never echo.  
+   See [mcp.md](mcp.md).
+
+8. ngrok reserved URL (optional)  
+   Empty → no public tunnel. Example: `https://your-name.ngrok.app`  
+   Stored as `ngrok.url`. Check if non-empty: `https://` + host.  
+   This is an address, not a password. See [tunnel.md](tunnel.md).
+
+9. ngrok auth token (optional)  
+   Empty allowed. Stored as `ngrok.auth_token`.  
+   Needed only if step 8 is set and `fy start` should launch ngrok.  
+   Never echo. Never give this value to MCP clients.
+
 Done banner: `ready.  start: fy start`
 
 Re-run `fy onboard` to rotate any of the fields.
