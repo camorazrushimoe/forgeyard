@@ -112,9 +112,12 @@ fy do https://github.com/YOU/toy implement the spec.md in this repo
 ```text
 fy help
 fy status
+fy why
 fy stop
 fy bind URL
 ```
+
+If the factory looks alive but does not advance, `fy why` prints the last tick facts (`spec/debug.md`).
 
 Remote agents talk to MCP on `http://127.0.0.1:18789/mcp` with `Authorization: Bearer <mcp.bind_token>`. Optional public URL is the ngrok reserved domain + `/mcp`. See [spec/mcp.md](spec/mcp.md) and [spec/tunnel.md](spec/tunnel.md).
 
@@ -143,6 +146,7 @@ On the SSH host the clone lives at `/srv/forgeyard/<repo-name>/repo/` (`pack/boo
 
 - [SPEC.md](SPEC.md) — kernel
 - [spec/watch.md](spec/watch.md) — A–E
+- [spec/debug.md](spec/debug.md) — `fy why` / why.json
 - [spec/intake.md](spec/intake.md) — `fy do`
 - [spec/onboard.md](spec/onboard.md) / [spec/cli.md](spec/cli.md) / [spec/install.md](spec/install.md)
 - [spec/cluster.md](spec/cluster.md) / [spec/github-auth.md](spec/github-auth.md)

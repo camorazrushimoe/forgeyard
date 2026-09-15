@@ -74,13 +74,14 @@ Schema `1`. Extra fields may be added later; readers ignore unknown keys. Writer
 | `no_pr` | implementing and GitHub shows no open PR for the item branch |
 | `outcome_invalid` | last run for this step had no validated outcome |
 | `retry_blocked` | cycle or crash cap hit |
-| `idle_tick` | nothing else applied |
+
+Every `Action` maps to exactly one reason in that table. Do not invent a second reason for the same tick.
 
 `last_outcome` shape when present: `kind/verdict@sha-or-pr` (example `spec_review/approve@abc`, `qa/no_merge@9`). Empty if none.
 
 `spec_verdict` is `approve`, `reject`, or empty.
 
-why.json is **not** an input to `tick`. Deleting it must not change workflow behaviour. A missing or undecodable file is treated by `fy why` as absent (`why: -`).
+why.json is **not** an input to `tick`. Deleting it must not change workflow behaviour. A missing or undecodable file is treated by `fy why` as absent (`action: -`).
 
 Write it even on `SleepBusy`. Overwrite in place; no history file.
 
@@ -122,7 +123,7 @@ excerpt: <≤200 bytes of the scanned text, already sanitized>
 
 Do not dump full Pi stdout. Do not write this file on `runner_missing`, `pi_exit_*`, or API classification failures — those already have `hook=stop summary=`.
 
-If a later run stores a valid `outcome.json` for the same `run_id`, delete `outcome.error`.
+If a later successful store writes `outcome.json` for the same `run_id`, delete `outcome.error`.
 
 ## fy why
 
@@ -155,21 +156,21 @@ error:      runs/20260915T050000Z-ab12/outcome.error
 updated:    2026-09-15T05:00:00Z
 ```
 
-Sources, in this order of display:
+Sources — one owner per line, no second guess:
 
 | line | source |
 |---|---|
 | watch | `watch.pid` + alive check |
 | busy / workflow / step / run | `state.json` |
-| action / reason / updated | `why.json` (`-` if missing) |
-| spec | `spec-source.json` + cache file |
+| action / reason / updated / pr / outcome | `why.json` only. If the file is missing: those lines are `-`. Do not re-derive outcome from `runs/` |
+| spec | `spec-source.json` + cache file (present/missing, stale, sha, verdict from spec-source + latest spec outcome only if why.json is missing? **No** — spec line may read spec-source.json directly because that file is already the cache contract) |
 | plan | `plan.json` current in-flight item, else `-` |
-| pr | `why.json.pr_open` (do not call GitHub from `fy why`) |
-| outcome | `why.json.last_outcome` or latest matching `outcome.json` |
 | stop | last project `hook=stop` status + summary |
-| error | path if `outcome.error` exists for `state.run_id` or last run |
+| error | path if `outcome.error` exists for `state.run_id`; else `-` |
 
-`fy why` never calls an LLM, never SSHes, never talks to GitHub. If a fact is missing, print `-`.
+`pr` and `outcome` are the last tick's view. If watch is down they may be stale; `watch: down` is how the operator knows.
+
+`fy why` never calls an LLM, never SSHes, never talks to GitHub.
 
 Add the command to `fy help`.
 
