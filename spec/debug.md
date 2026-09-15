@@ -57,25 +57,23 @@ Schema `1`. Extra fields may be added later; readers ignore unknown keys. Writer
 
 `action` is the `Action` name from the tick (`SleepBusy`, `BlockedOnSpec`, `BlockedOnSpecRefresh`, `RunTechPm`, `SeedPlan`, `RunImplement`, `RunQa`, `MergePr`, `PlanDone`, `RetryBlocked`).
 
-`reason` is a short stable token, not free prose:
+`reason` is a short stable token, not free prose. One reason per tick, chosen from the facts that produced the action:
 
 | reason | when |
 |---|---|
 | `busy` | `SleepBusy` |
-| `spec_missing` | no usable cached spec |
-| `spec_stale` | `spec-source.json.stale` |
-| `spec_unreviewed` | no current-SHA tech-pm approve |
-| `spec_rejected` | latest current-SHA verdict is reject / needs_changes |
-| `plan_seeded` | empty plan → one item |
-| `plan_done` | all items done/merged |
-| `run_implement` | starting or retrying implement |
-| `run_qa` | starting QA |
-| `merge_pr` | watch merging |
-| `no_pr` | implementing and GitHub shows no open PR for the item branch |
-| `outcome_invalid` | last run for this step had no validated outcome |
-| `retry_blocked` | cycle or crash cap hit |
-
-Every `Action` maps to exactly one reason in that table. Do not invent a second reason for the same tick.
+| `spec_missing` | `BlockedOnSpec` |
+| `spec_stale` | `BlockedOnSpecRefresh` |
+| `spec_unreviewed` | `RunTechPm` and no current-SHA verdict |
+| `spec_rejected` | `RunTechPm` and current-SHA verdict is reject / needs_changes |
+| `plan_seeded` | `SeedPlan` |
+| `plan_done` | `PlanDone` |
+| `no_pr` | `RunImplement` because GitHub shows no open PR for the item branch |
+| `run_implement` | any other `RunImplement` |
+| `run_qa` | `RunQa` |
+| `merge_pr` | `MergePr` |
+| `outcome_invalid` | last run for this step had no validated outcome and that fact selected the action |
+| `retry_blocked` | `RetryBlocked` |
 
 `last_outcome` shape when present: `kind/verdict@sha-or-pr` (example `spec_review/approve@abc`, `qa/no_merge@9`). Empty if none.
 
@@ -146,7 +144,7 @@ workflow:   spec-review
 step:       review
 action:     BlockedOnSpecRefresh
 reason:     spec_stale
-spec:       present stale sha=abc verdict=-
+spec:       present stale sha=abc
 plan:       item=1 status=ready cycles=1 crashes=0
 pr:         no
 outcome:    spec_review/approve@old
@@ -162,8 +160,8 @@ Sources — one owner per line, no second guess:
 |---|---|
 | watch | `watch.pid` + alive check |
 | busy / workflow / step / run | `state.json` |
-| action / reason / updated / pr / outcome | `why.json` only. If the file is missing: those lines are `-`. Do not re-derive outcome from `runs/` |
-| spec | `spec-source.json` + cache file (present/missing, stale, sha, verdict from spec-source + latest spec outcome only if why.json is missing? **No** — spec line may read spec-source.json directly because that file is already the cache contract) |
+| action / reason / updated / pr / outcome | `why.json` only. Missing file → those lines are `-`. Do not re-derive outcome from `runs/` |
+| spec | `spec-source.json` + cached `spec.md`: `present` or `missing`, `stale` or `fresh`, `sha=<hex-or->`. No verdict here (verdict lives on `outcome`) |
 | plan | `plan.json` current in-flight item, else `-` |
 | stop | last project `hook=stop` status + summary |
 | error | path if `outcome.error` exists for `state.run_id`; else `-` |
