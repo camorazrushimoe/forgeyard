@@ -8,6 +8,7 @@ fy onboard
 fy start
 fy stop
 fy status
+fy why
 fy bind <github-url>
 fy do <github-url> <prompt...>
 ```
@@ -24,6 +25,7 @@ fy — forgeyard
   fy start             run watch + mcp + yard, print the event log
   fy stop              stop a running fy start
   fy status            same block as forge status
+  fy why               last tick facts (see spec/debug.md)
   fy bind URL          attach a GitHub repo / issue / PR
   fy do URL TEXT       queue work (see spec/intake.md)
 ```

@@ -11,11 +11,12 @@ Even when a model crashes:
 1. The factory knows **which GitHub project** it is on.
 2. It knows **busy vs idle** because the wrapper wrote start/stop.
 3. It has a **short event history** on disk.
+4. It can answer **why the last tick did not advance** from files on disk (`fy why`).
 
 ## 2. Binaries and pack
 
 ```
-fy        Human CLI: help, onboard, start, stop, status, bind, do
+fy        Human CLI: help, onboard, start, stop, status, why, bind, do
 forge     Kernel CLI: bind, hooks, envelope, tokens, require-spec
 watch     Deterministic loop. No LLM.
 yard      Telegram panel. No LLM. Optional.
@@ -39,6 +40,7 @@ I8. One busy lock per project.
 I9. Pi runs on the laptop. Application git/run/test run on the SSH host.
 I10. GitHub PAT never written to the SSH host. Push and `gh` run on the laptop.
 I11. MCP never binds `0.0.0.0`. Public reach, if any, is the optional tunnel. MCP does not run workflows and does not merge.
+I12. Diagnosis files (`why.json`, `watch.log`, `outcome.error`) never drive `tick`. Missing diagnosis must not change workflow behaviour.
 
 ## 4. Disk
 
@@ -49,10 +51,11 @@ Laptop `FORGEYARD_ROOT` (default `~/.forgeyard/factory`):
   factory.toml
   tokens/tokens.toml
   events.jsonl
+  watch.log watch.log.1
   watch.pid mcp.pid yard.pid ngrok.pid
   projects/<project>/
-    PROJECT.toml spec.md spec-source.json state.json events.jsonl plan.json inbox.md
-    runs/<run-id>/{request.json,stdout.jsonl,stderr.log,outcome.json}
+    PROJECT.toml spec.md spec-source.json state.json events.jsonl plan.json inbox.md why.json
+    runs/<run-id>/{request.json,stdout.jsonl,stderr.log,outcome.json,outcome.error}
 ```
 
 Host:
@@ -81,6 +84,7 @@ Required: `ts`, `project`, `hook` (`bind|start|stop|status|token_set|token_clear
 `run_id`: `YYYYMMDDTHHMMSSZ-` + 4 hex.
 Line ≤ 2 KiB.
 Factory-level `hook=mcp` lines may have an empty `project` and live in `<ROOT>/events.jsonl` (see spec/mcp.md).
+Tick changes append `hook=run step=tick` on the **project** log (see spec/debug.md). Not every loop sleep.
 
 ## 8. forge CLI
 
@@ -101,6 +105,7 @@ Start hook → envelope → `pi` on laptop → validate/store outcome → stop h
 The wrapper records the effective endpoint, selected model, HTTP/API failure class, exit code, and bounded Pi stdout/stderr without recording tokens. A role exit code of 0 is only transport success; it is not approval, a plan, or a QA verdict.
 After `implement`, wrapper runs `gh pr list` (spec/github-facts.md) and push-from-laptop (spec/github-auth.md).
 Do not use `pi -c`.
+When the structured outcome is missing or invalid, the wrapper also writes `runs/<run-id>/outcome.error` (spec/debug.md).
 
 ## 10. Workflows
 
@@ -111,10 +116,11 @@ First happy path: `spec.md` on the repository default branch + `fy do <url> <tex
 
 Shared project block: `forge status`, `fy status`, yard `/status`.
 Factory block: `mcp` `factory_status` (spec/mcp.md).
+Last tick: `fy why` (spec/debug.md). Not mixed into the status golden block.
 
 ## 12. Concurrency
 
-flock on `events.jsonl.lock` and `state.json.lock`. One Pi per project.
+flock on `events.jsonl.lock`, `state.json.lock`, and `why.json.lock`. One Pi per project.
 
 ## 13. Non-goals
 
@@ -131,6 +137,7 @@ Laptop tools assumed on PATH: `pi`, `gh`, `ssh`, `git`. Optional: `ngrok`.
 ## 15. Map
 
 - spec/watch.md — scenarios
+- spec/debug.md — why.json / fy why / outcome.error
 - spec/cluster.md — SSH workbench
 - spec/intake.md — `fy do`
 - spec/cli.md / onboard.md / install.md
