@@ -26,6 +26,7 @@ fn help_matches_spec() {
     assert_eq!(code, 0);
     assert!(out.starts_with("fy — forgeyard"));
     assert!(out.contains("fy do URL TEXT"));
+    assert!(out.contains("fy why"));
     let (code2, out2, _) = run(&tmp(), &["--help"]);
     assert_eq!(code2, 0);
     assert_eq!(out, out2);
@@ -72,4 +73,23 @@ fn start_writes_pid_stop_kills() {
     std::thread::sleep(std::time::Duration::from_millis(80));
     let alive = Command::new("kill").args(["-0", &pid.to_string()]).status().unwrap().success();
     assert!(!alive);
+}
+
+#[test]
+fn why_unknown_project_is_precondition() {
+    let (code, _, err) = run(&tmp(), &["why", "nope"]);
+    assert_eq!(code, 1);
+    assert!(err.contains("unknown project"));
+}
+
+#[test]
+fn why_without_why_json_prints_dashes() {
+    let root = tmp();
+    let (code, _, _) = run(&root, &["do", "https://github.com/acme/toy", "x"]);
+    assert_eq!(code, 0);
+    let (code, out, err) = run(&root, &["why", "toy"]);
+    assert_eq!((code, err.as_str()), (0, ""), "{out}");
+    assert!(out.starts_with("forgeyard why"));
+    assert!(out.contains("action:     -"));
+    assert!(out.contains("watch:      down"));
 }

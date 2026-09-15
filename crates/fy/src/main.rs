@@ -3,9 +3,9 @@ use std::io::{self, Write};
 use std::process::ExitCode;
 
 use forgeyard_core::{
-    bind_project, current_project, drain_hook_lines, factory_root, fy_do, list_bound_projects,
-    project_dir, render_status, run_wizard, runner_missing, start_children, stop_daemons, Exit,
-    FY_HELP, LiveProbe,
+    bind_project, current_project, drain_hook_lines, drain_text_lines, factory_root, fy_do, list_bound_projects,
+    project_dir, render_status, render_why, run_wizard, runner_missing, start_children, stop_daemons,
+    Exit, FY_HELP, LiveProbe,
 };
 
 fn main() -> ExitCode {
@@ -51,6 +51,7 @@ fn main() -> ExitCode {
                         return Exit::Ok.into();
                     }
                     let mut offsets: std::collections::BTreeMap<std::path::PathBuf, u64> = Default::default();
+                    let trace = env::var("FORGEYARD_WATCH_TRACE").ok().as_deref() == Some("1");
                     loop {
                         if let Ok(names) = list_bound_projects(&root) {
                             for n in names {
@@ -60,6 +61,13 @@ fn main() -> ExitCode {
                                 offsets.insert(path, new_off);
                                 for line in lines { println!("{line}"); }
                             }
+                        }
+                        if trace {
+                            let path = root.join("watch.log");
+                            let off = *offsets.get(&path).unwrap_or(&0);
+                            let (new_off, lines) = drain_text_lines(&path, off);
+                            offsets.insert(path, new_off);
+                            for line in lines { println!("{line}"); }
                         }
                         if env::var("FORGEYARD_TAIL_ONCE").ok().as_deref() == Some("1") {
                             return Exit::Ok.into();
@@ -89,6 +97,16 @@ fn main() -> ExitCode {
             match project {
                 None => { eprintln!("usage: fy status <project>"); Exit::Usage.into() }
                 Some(p) => match render_status(&root, &p) {
+                    Ok(block) => { print!("{block}"); Exit::Ok.into() }
+                    Err(e) => fail(&e),
+                },
+            }
+        }
+        Some("why") => {
+            let project = args.first().cloned().or_else(|| current_project(&root).ok());
+            match project {
+                None => { eprintln!("usage: fy why <project>"); Exit::Usage.into() }
+                Some(p) => match render_why(&root, &p) {
                     Ok(block) => { print!("{block}"); Exit::Ok.into() }
                     Err(e) => fail(&e),
                 },
