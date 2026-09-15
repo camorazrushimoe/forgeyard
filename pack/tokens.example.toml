@@ -18,3 +18,11 @@ host = ""
 user = ""
 port = 22
 password = ""
+
+[mcp]
+bind_token = ""
+port = 18789
+
+[ngrok]
+url = ""
+auth_token = ""

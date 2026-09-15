@@ -19,6 +19,7 @@ fy        Human CLI: help, onboard, start, stop, status, bind, do
 forge     Kernel CLI: bind, hooks, envelope, tokens, require-spec
 watch     Deterministic loop. No LLM.
 yard      Telegram panel. No LLM. Optional.
+mcp       MCP control plane. No LLM. Localhost only; optional ngrok.
 pi        External runner on the **laptop**. One process per run.
 pack      roles + skills + pack.toml
 ```
@@ -33,10 +34,11 @@ I3. Every Pi prompt comes from `forge envelope` and contains the project name.
 I4. No implementation without a non-empty, locally cached `spec.md` (`forge require-spec`). For a bound repository, the cache is refreshed deterministically from the default branch before this gate; manual copying is never required.
 I5. Every role run has a bounded local execution record and, when its workflow requires a decision, a schema-validated structured outcome artifact. An exit code alone is not a workflow decision. QA `outcome.json` is the merge-gate truth; its PR comment is audit-only.
 I6. A stale repository spec cache blocks every new workflow transition until a successful refresh.
-I7. One append-only `events.jsonl` per project. No tokens, no full prompts.
+I7. One append-only `events.jsonl` per project. No tokens, no full prompts. Factory-level lines (mcp auth, daemon) live in `<ROOT>/events.jsonl`.
 I8. One busy lock per project.
 I9. Pi runs on the laptop. Application git/run/test run on the SSH host.
 I10. GitHub PAT never written to the SSH host. Push and `gh` run on the laptop.
+I11. MCP never binds `0.0.0.0`. Public reach, if any, is the optional tunnel. MCP does not run workflows and does not merge.
 
 ## 4. Disk
 
@@ -46,6 +48,8 @@ Laptop `FORGEYARD_ROOT` (default `~/.forgeyard/factory`):
 <ROOT>/
   factory.toml
   tokens/tokens.toml
+  events.jsonl
+  watch.pid mcp.pid yard.pid ngrok.pid
   projects/<project>/
     PROJECT.toml spec.md spec-source.json state.json events.jsonl plan.json inbox.md
     runs/<run-id>/{request.json,stdout.jsonl,stderr.log,outcome.json}
@@ -67,15 +71,16 @@ Rebound to a different owner/repo → exit 3.
 ## 6. state.json
 
 `schema = 1`.
-`agent`: `tech-pm` | `developer` | `qa` | `forge` | `watch` | `yard` | `pi` | `human`.
+`agent`: `tech-pm` | `developer` | `qa` | `forge` | `watch` | `yard` | `mcp` | `pi` | `human`.
 Busy lock lives here. Ticket progress lives in `plan.json` (see spec/watch.md).
 Atomic write: tmp + fsync + rename.
 
 ## 7. Event log
 
-Required: `ts`, `project`, `hook` (`bind|start|stop|status|token_set|token_clear|panel|run|intake`).
+Required: `ts`, `project`, `hook` (`bind|start|stop|status|token_set|token_clear|panel|run|intake|mcp`).
 `run_id`: `YYYYMMDDTHHMMSSZ-` + 4 hex.
 Line ≤ 2 KiB.
+Factory-level `hook=mcp` lines may have an empty `project` and live in `<ROOT>/events.jsonl` (see spec/mcp.md).
 
 ## 8. forge CLI
 
@@ -104,7 +109,8 @@ First happy path: `spec.md` on the repository default branch + `fy do <url> <tex
 
 ## 11. Status
 
-Shared block: `forge status`, `fy status`, yard `/status`.
+Shared project block: `forge status`, `fy status`, yard `/status`.
+Factory block: `mcp` `factory_status` (spec/mcp.md).
 
 ## 12. Concurrency
 
@@ -112,14 +118,15 @@ flock on `events.jsonl.lock` and `state.json.lock`. One Pi per project.
 
 ## 13. Non-goals
 
-Hermes, Redis, Linear, DevOps role, Pi on the cluster, PAT on the cluster,
+Hermes-as-runtime, Redis, Linear, DevOps role, Pi on the cluster, PAT on the cluster,
 parallel tickets, production deploy, compiling Pi into forge.
+MCP talking to remote agents is in scope; embedding those agents in the kernel is not.
 
 ## 14. Rust sketch
 
-`crates/forgeyard-core`, `crates/fy`, `crates/forge`, `crates/watch`, `crates/yard`.
+`crates/forgeyard-core`, `crates/fy`, `crates/forge`, `crates/watch`, `crates/yard`, `crates/mcp`.
 Deps v0: serde, toml, clap, fs2, time, small HTTP client.
-Laptop tools assumed on PATH: `pi`, `gh`, `ssh`, `git`.
+Laptop tools assumed on PATH: `pi`, `gh`, `ssh`, `git`. Optional: `ngrok`.
 
 ## 15. Map
 
@@ -130,4 +137,5 @@ Laptop tools assumed on PATH: `pi`, `gh`, `ssh`, `git`.
 - spec/github-facts.md / github-auth.md
 - spec/llm.md / qa-command.md / pi-runner.md
 - spec/tokens.md / telegram-panel.md
+- spec/mcp.md / tunnel.md — control plane + optional public pipe
 - spec/adversarial-review-v0.md — this pass

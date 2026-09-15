@@ -1,7 +1,7 @@
 # Tokens
 
 Secrets live in one file: `<ROOT>/tokens/tokens.toml`, mode `0600`.
-The example committed to git is `tokens/tokens.toml.example`.
+The example committed to git is `pack/tokens.example.toml` (copied to `tokens/tokens.toml` on first install, never overwritten).
 
 Nothing prints raw secrets: not `fy`, not `forge`, not `yard`, not `mcp`, not the event log.
 
@@ -29,7 +29,7 @@ port = 22
 password = ""
 
 [mcp]
-bind_token = ""        # Bearer for MCP; generated if empty at onboard
+bind_token = ""        # Bearer for MCP; generated if empty at first onboard / fy start
 port = 18789
 
 [ngrok]

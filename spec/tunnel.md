@@ -25,55 +25,35 @@ That is the whole client setup. The agent must not get `ngrok.auth_token`.
 
 ## What you type at onboard
 
-Yes: if you want agents from outside, onboard steps 8 and 9 are exactly
+Canonical wizard text lives in [onboard.md](onboard.md) steps 7–9. This file only states the meaning of the three values.
 
-- reserved URL (`ngrok.url`)
-- ngrok account token (`ngrok.auth_token`)
-
-Both optional. Both empty → local MCP only. URL without token (or token without URL) → tunnel skipped at `fy start`.
-
-Separately, step 7 is the MCP bearer. Empty generates one. That value is what you paste into the remote agent, not the ngrok token.
+- reserved URL (`ngrok.url`) and ngrok account token (`ngrok.auth_token`) are both optional.
+- Both empty → local MCP only.
+- URL without token (or token without URL) → tunnel skipped at `fy start`.
+- Step 7 is the MCP bearer. Generate / keep / rotate rules are in [mcp.md](mcp.md) (empty on re-run keeps an existing token).
 
 ## Start behaviour
 
 If `ngrok.auth_token` and `ngrok.url` are both set:
 
-1. mcp already listening on `127.0.0.1:18789`
-2. `fy start` launches `ngrok http 18789 --url <host-from-ngrok.url>` (or equivalent current ngrok CLI)
-3. banner prints `mcp: local http://127.0.0.1:18789/mcp` and `mcp: public <ngrok.url>/mcp`
+1. mcp already listening on `127.0.0.1:<port>` (port rules in [mcp.md](mcp.md))
+2. `fy start` launches `ngrok http <port> --url <host-from-ngrok.url>` (or equivalent current ngrok CLI)
+3. banner prints `mcp: local http://127.0.0.1:<port>/mcp` and `mcp: public <ngrok.url>/mcp`
 4. missing `ngrok` binary → print `tunnel: missing; install ngrok` and continue; factory + local MCP still run
 
 If only URL is set and auth token is empty: do not start a tunnel; print `tunnel: skipped (no ngrok.auth_token)`.
 If only auth token is set: do not guess a URL; print `tunnel: skipped (no ngrok.url)`.
 
-`fy stop` stops the ngrok child too.
+`fy stop` stops the ngrok child too. Pid file: `<ROOT>/ngrok.pid`.
 
 Watch does not start ngrok. Yard does not start ngrok.
-
-## Onboard (optional tail of the wizard)
-
-After the existing six fields, `fy onboard` asks:
-
-7. MCP bind token  
-   Empty → generate and store. Non-empty → store as given. Never echo. Check: length ≥ 16.
-
-8. ngrok reserved URL  
-   Empty → skip tunnel. Example: `https://your-name.ngrok.app`  
-   Check if non-empty: must be `https://` host, no path required (mcp appends `/mcp`).
-
-9. ngrok auth token  
-   Empty allowed if step 8 was empty. If step 8 was set, empty is allowed but start will skip the tunnel.  
-   Check if non-empty: non-blank, do not call ngrok API in v0 (network optional).  
-   Never echo. Never write to events.
-
-Re-run onboard to rotate any of the three.
 
 ## Safety
 
 - MCP never binds public interfaces itself.
 - Tunnel child is one process, one port: MCP only. Not SSH, not GitHub.
 - Denied MCP requests do not include tool args in logs if they look like tokens.
-- `fy status` / Telegram `/status` may say `tunnel=up|down|off`, never the auth token, bind token tail only in `/tokens` meta (`..xxxx`) like other secrets.
+- `fy status` / Telegram `/status` / `factory_status` may say `tunnel=up|down|off`, never the auth token, bind token tail only in tokens meta (`..xxxx`) like other secrets.
 
 ## Client checklist (operator)
 

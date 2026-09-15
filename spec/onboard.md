@@ -22,8 +22,9 @@ Rules:
   - retry after a failed check — yellow
   - fatal / refused — red
   - generated values notice (`generated mcp.bind_token`) — green, never the value
+  - kept existing secret (`kept`) — dim
 - Secrets stay un-echoed even with color. Do not color the hidden input itself.
-- After a successful field: one short `ok` line, then the next separator. Do not reprint the previous secret.
+- After a successful field: one short `ok` or `kept` line, then the next separator. Do not reprint the previous secret.
 - Skip (empty optional field): `skipped` in dim, not an error color.
 - Done banner stays one block, green + bold if color is on:
 
@@ -75,8 +76,11 @@ Tests may set `NO_COLOR=1` and assert the numbered headers + separators exist.
 
 7. MCP bind token  
    Why: every MCP request must present this bearer (local and remote).  
-   Empty → generate 32 random bytes hex and store as `mcp.bind_token`.  
-   Check if typed: length ≥ 16. Never echo.  
+   Unset + empty → generate 32 random bytes hex and store as `mcp.bind_token`.  
+   Already set + empty → keep existing token, print `kept`.  
+   Typed value length ≥ 16 → store as given (rotate).  
+   Typed `rotate` → generate and store a new token, print `mcp: rotated bind_token` (never the value).  
+   Check if typed as a token: length ≥ 16. Never echo.  
    See [mcp.md](mcp.md).
 
 8. ngrok reserved URL (optional)  
@@ -91,7 +95,7 @@ Tests may set `NO_COLOR=1` and assert the numbered headers + separators exist.
 
 Done banner: `ready.  start: fy start`
 
-Re-run `fy onboard` to rotate any of the fields.
+Re-run `fy onboard` to change fields. Empty on a secret that is already set keeps it, except step 7 which also accepts `rotate`.
 
 ## Who reads cluster SSH
 

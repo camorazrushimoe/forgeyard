@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/inst
 What lands:
 
 ```text
-~/.forgeyard/bin/{fy,forge,yard,watch}
+~/.forgeyard/bin/{fy,forge,yard,watch,mcp}
 ~/.forgeyard/pack/
 ~/.forgeyard/factory/tokens/tokens.toml   # from example, never overwritten
 ~/.forgeyard/factory/projects/
@@ -52,10 +52,10 @@ next:
 Uninstall:
 
 ```sh
-rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.local/bin/watch
+rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.local/bin/watch ~/.local/bin/mcp
 ```
 
-Does not uninstall Pi.
+Does not uninstall Pi or ngrok.
 
 ## Install Pi (required for `forge run`)
 
@@ -87,6 +87,9 @@ One field at a time, tokens hidden:
 4. GitHub PAT (`repo`: issues, PRs, merge)
 5. SSH host (`user@host` or `user@host:port`)
 6. SSH password
+7. MCP bind token (empty generates one; re-run empty keeps it; type `rotate` to mint a new one)
+8. ngrok reserved URL (optional)
+9. ngrok auth token (optional; laptop only)
 
 Secrets land in `~/.forgeyard/factory/tokens/tokens.toml` mode 0600. Never in the event log.
 
@@ -113,6 +116,8 @@ fy stop
 fy bind URL
 ```
 
+Remote agents talk to MCP on `http://127.0.0.1:18789/mcp` with `Authorization: Bearer <mcp.bind_token>`. Optional public URL is the ngrok reserved domain + `/mcp`. See [spec/mcp.md](spec/mcp.md) and [spec/tunnel.md](spec/tunnel.md).
+
 ## What the factory expects from your project repo
 
 | file | why |
@@ -131,6 +136,7 @@ On the SSH host the clone lives at `/srv/forgeyard/<repo-name>/repo/` (`pack/boo
 | `forge` | hooks, envelope, spec gate, log |
 | `watch` | state machine, no LLM |
 | `yard` | Telegram |
+| `mcp` | MCP tools for local/remote agents |
 | `pi` | one session per run |
 
 ## Spec map
@@ -141,6 +147,7 @@ On the SSH host the clone lives at `/srv/forgeyard/<repo-name>/repo/` (`pack/boo
 - [spec/onboard.md](spec/onboard.md) / [spec/cli.md](spec/cli.md) / [spec/install.md](spec/install.md)
 - [spec/cluster.md](spec/cluster.md) / [spec/github-auth.md](spec/github-auth.md)
 - [spec/llm.md](spec/llm.md) / [spec/qa-command.md](spec/qa-command.md)
+- [spec/mcp.md](spec/mcp.md) / [spec/tunnel.md](spec/tunnel.md)
 - [spec/adversarial-review-v0.md](spec/adversarial-review-v0.md)
 - [roles/](roles/) [skills/](skills/)
 
