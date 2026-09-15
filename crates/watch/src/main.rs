@@ -4,7 +4,7 @@ use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
     current_project, dispatch_action, factory_root, list_bound_projects, load_binding, load_state,
-    publish_after_implement, refresh_spec_cache, tick, Action, Agent, Exit, GhWatchIo, LivePublisher,
+    publish_after_implement, record_tick, refresh_spec_cache, tick, Action, Agent, Exit, GhWatchIo, LivePublisher,
     LiveSpecFetcher, Plan, RealGh, WatchExec,
 };
 
@@ -39,6 +39,7 @@ fn tick_one(root: &std::path::Path, p: &str) -> Action {
         .map(|b| format!("{}/{}", b.owner, b.repo))
         .unwrap_or_else(|| p.to_string());
     let act = tick(&mut plan, &io);
+    let _ = record_tick(&root, p, &plan, &act, &io);
     dispatch_action(&act, &plan, p, &repo, &mut ShellExec);
     if let Action::RunImplement { item } = &act {
         if let Some(b) = load_binding(root, p) {
