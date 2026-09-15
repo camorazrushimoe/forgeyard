@@ -155,7 +155,7 @@ pub fn start_children(root: &Path) -> Result<(u32, Option<u32>)> {
         let token = t.get("telegram.bot_token").map(|s| s.to_string())
             .or_else(|| std::env::var("TELEGRAM_BOT_TOKEN").ok().filter(|s| !s.is_empty()));
         if token.is_some() {
-            let (yard_bin, yard_arg) = resolve_bin("FORGEYARD_YARD_BIN", "yard", "check");
+            let (yard_bin, yard_arg) = resolve_bin("FORGEYARD_YARD_BIN", "yard", "sleep");
             let ypid = spawn_cmd(&yard_bin, &[&yard_arg], root)?;
             write_pid(&yard_pid_path(root), ypid)?;
             Some(ypid)
