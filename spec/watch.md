@@ -8,6 +8,7 @@ Where code lives: [cluster.md](cluster.md).
 How a PR is proven: [github-facts.md](github-facts.md).
 How push happens: [github-auth.md](github-auth.md).
 QA command: [qa-command.md](qa-command.md).
+Why a tick did not advance: [debug.md](debug.md).
 
 ## Merge gate
 
@@ -31,6 +32,8 @@ Watch merges on GitHub only on a validated `merge` outcome.
 | QA gate | validated QA `outcome.json` for the current PR/head SHA; matching PR comment is audit-only |
 | merged | GitHub `merged == true` |
 | run finished | `hook=stop` for live `run_id` |
+| last tick | `why.json` (`action` + `reason`); not an input to tick |
+| invalid outcome | `runs/<run-id>/outcome.error` next to a missing `outcome.json` |
 
 ## plan.json item status
 
@@ -77,6 +80,7 @@ loop:
   if approved for the current spec SHA and no plan: B or one-item plan
   if plan complete: D
   else drive current item through C
+  write why.json for this tick (spec/debug.md)
 ```
 
 ## Scenarios A–E
@@ -95,3 +99,4 @@ D plan_done; E triage then C with `fix/`.
 - treat model text as the PR URL
 - advance a workflow step solely because a Pi process exited 0
 - require an operator to copy a repository `spec.md` into the factory directory
+- treat why.json as workflow input
