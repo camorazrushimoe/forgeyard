@@ -26,9 +26,10 @@ pub mod tokens;
 pub mod types;
 pub mod watch;
 pub mod watch_exec;
+pub mod why;
 
 pub use cluster::{bootstrap_commands, remote_path, ssh_target};
-pub use daemon::{drain_hook_lines, pretty_event_line, runner_missing, start_children, stop_daemons};
+pub use daemon::{drain_hook_lines, drain_text_lines, pretty_event_line, runner_missing, start_children, stop_daemons};
 pub use bind::{bind_project, parse_github_ref, Binding, ProjectFile, SourceKind};
 pub use error::{Exit, ForgeError, Result};
 pub use envelope::build_envelope;
@@ -40,7 +41,7 @@ pub use runner::{forge_run, RunOpts, RunOutcome};
 pub use outcome::{parse_outcome, validate_and_store, Outcome};
 pub use provider::classify_stderr;
 pub use spec_cache::{refresh_spec_cache, LiveSpecFetcher, SpecFetcher, SpecSource};
-pub use lock::{events_lock_path, state_lock_path, FileLock};
+pub use lock::{events_lock_path, state_lock_path, why_lock_path, FileLock};
 pub use onboard::{run_wizard, LiveProbe};
 pub use panel::{handle as panel_handle, preflight as panel_preflight, PanelState, PANEL_HELP};
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
@@ -51,16 +52,18 @@ pub use status::render_status;
 pub use tokens::{list_rows, load_meta, load_tokens, save_tokens, Meta, Tokens, CANONICAL};
 pub use types::{Agent, AgentStatus, Hook};
 pub use watch::{tick, Action, Plan, WatchIo};
+pub use why::{record_tick, render_why, Why};
 pub use watch_exec::{dispatch as dispatch_action, RecordingExec, WatchExec};
 
 pub const FY_HELP: &str = "\
 fy — forgeyard
 
   fy help              this text
-  fy onboard           telegram, llm, github, ssh cluster
-  fy start             run watch + yard, print the event log
+  fy onboard           telegram, llm, github, ssh, optional mcp/ngrok
+  fy start             run watch + mcp + yard, print the event log
   fy stop              stop a running fy start
   fy status            same block as forge status
+  fy why               last tick facts (see spec/debug.md)
   fy bind URL          attach a GitHub repo / issue / PR
   fy do URL TEXT       queue work (see spec/intake.md)
 ";
