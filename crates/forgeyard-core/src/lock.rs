@@ -71,6 +71,10 @@ pub fn events_lock_path(project_dir: &Path) -> std::path::PathBuf {
     project_dir.join("events.jsonl.lock")
 }
 
+pub fn why_lock_path(project_dir: &Path) -> std::path::PathBuf {
+    project_dir.join("why.json.lock")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,4 +1,4 @@
-use std::fs;
+use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -10,6 +10,18 @@ use crate::tokens::load_tokens;
 pub fn watch_pid_path(root: &Path) -> PathBuf { root.join("watch.pid") }
 pub fn yard_pid_path(root: &Path) -> PathBuf { root.join("yard.pid") }
 pub fn start_pid_path(root: &Path) -> PathBuf { root.join("fy-start.pid") }
+pub fn watch_log_path(root: &Path) -> PathBuf { root.join("watch.log") }
+
+const WATCH_LOG_CAP: u64 = 256 * 1024;
+
+pub fn rotate_watch_log(root: &Path) {
+    let p = watch_log_path(root);
+    if let Ok(meta) = fs::metadata(&p) {
+        if meta.len() > WATCH_LOG_CAP {
+            let _ = fs::rename(&p, root.join("watch.log.1"));
+        }
+    }
+}
 
 pub fn read_pid(path: &Path) -> Option<u32> {
     fs::read_to_string(path).ok()?.trim().parse().ok()
@@ -66,6 +78,25 @@ fn spawn_cmd(cmd: &str, args: &[&str], root: &Path) -> Result<u32> {
     Ok(child.id())
 }
 
+fn spawn_watch(cmd: &str, args: &[&str], root: &Path) -> Result<u32> {
+    rotate_watch_log(root);
+    let log = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(watch_log_path(root))
+        .map_err(|e| ForgeError::Precondition(format!("watch.log: {e}")))?;
+    let err = log.try_clone().map_err(|e| ForgeError::Precondition(format!("watch.log: {e}")))?;
+    let child = Command::new(cmd)
+        .args(args)
+        .env("FORGEYARD_ROOT", root)
+        .stdin(Stdio::null())
+        .stdout(Stdio::from(log))
+        .stderr(Stdio::from(err))
+        .spawn()
+        .map_err(|e| ForgeError::Precondition(format!("spawn {cmd}: {e}")))?;
+    Ok(child.id())
+}
+
 fn resolve_bin(env_key: &str, name: &str, fallback: &str) -> (String, String) {
     if let Ok(v) = std::env::var(env_key) {
         let arg = std::env::var(env_key.replace("_BIN", "_ARG")).unwrap_or_else(|_| {
@@ -101,9 +132,23 @@ pub fn drain_hook_lines(path: &Path, offset: u64) -> (u64, Vec<String>) {
     (data.len() as u64, lines)
 }
 
+pub fn drain_text_lines(path: &Path, offset: u64) -> (u64, Vec<String>) {
+    let Ok(data) = fs::read(path) else { return (offset, vec![]) };
+    if (data.len() as u64) <= offset { return (offset, vec![]); }
+    let chunk = &data[offset as usize..];
+    let text = String::from_utf8_lossy(chunk);
+    let lines = text
+        .split('\n')
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .map(|l| crate::events::sanitize(l))
+        .collect();
+    (data.len() as u64, lines)
+}
+
 pub fn start_children(root: &Path) -> Result<(u32, Option<u32>)> {
     let (watch_bin, watch_arg) = resolve_bin("FORGEYARD_WATCH_BIN", "watch", "sleep");
-    let wpid = spawn_cmd(&watch_bin, &[&watch_arg], root)?;
+    let wpid = spawn_watch(&watch_bin, &[&watch_arg], root)?;
     write_pid(&watch_pid_path(root), wpid)?;
     let yard = {
         let t = load_tokens(root).unwrap_or_default();
@@ -171,5 +216,24 @@ mod tests {
         assert_eq!(lines.len(), 1);
         let (_, more) = drain_hook_lines(&p, off);
         assert!(more.is_empty());
+    }
+    #[test]
+    fn rotate_watch_log_renames_when_over_cap() {
+        let root = tmp();
+        let p = watch_log_path(&root);
+        fs::write(&p, vec![b'x'; (256 * 1024) + 1]).unwrap();
+        rotate_watch_log(&root);
+        assert!(!p.exists());
+        assert!(root.join("watch.log.1").exists());
+    }
+    #[test]
+    fn drain_text_redacts_tokens() {
+        let root = tmp();
+        let p = root.join("watch.log");
+        fs::write(&p, "toy SleepBusy busy\nsk-abcdefghijklmnopqrstuvwxyz leaked\n").unwrap();
+        let (_, lines) = drain_text_lines(&p, 0);
+        assert_eq!(lines[0], "toy SleepBusy busy");
+        assert!(lines[1].contains("REDACTED"));
+        assert!(!lines[1].contains("sk-abcdefghijklmnopqrstuvwxyz"));
     }
 }

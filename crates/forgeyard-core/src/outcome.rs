@@ -202,7 +202,27 @@ pub fn validate_and_store(
     let dir = run_dir(root, project, run_id);
     fs::create_dir_all(&dir)?;
     fs::write(dir.join("outcome.json"), encode_outcome(&parsed))?;
+    let _ = fs::remove_file(dir.join("outcome.error"));
     Ok(parsed)
+}
+
+pub fn write_outcome_error(root: &Path, project: &str, run_id: &str, reason: &str, excerpt: &str) {
+    let dir = run_dir(root, project, run_id);
+    let _ = fs::create_dir_all(&dir);
+    let body = format!(
+        "reason: {}\nexcerpt: {}\n",
+        crate::events::sanitize(reason).chars().take(200).collect::<String>(),
+        crate::events::sanitize(excerpt).chars().take(200).collect::<String>(),
+    );
+    let _ = fs::write(dir.join("outcome.error"), body);
+}
+
+pub fn outcome_fail_reason(stdout: &str) -> String {
+    if parse_outcome(stdout).is_none() {
+        "missing kind".into()
+    } else {
+        "invalid outcome".into()
+    }
 }
 
 pub fn load_outcome(root: &Path, project: &str, run_id: &str) -> Option<Outcome> {

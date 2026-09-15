@@ -7,7 +7,7 @@ use crate::envelope::{build_envelope, cluster_configured, llm_endpoint, llm_key,
 use crate::error::{ForgeError, Result};
 use crate::events::sanitize;
 use crate::hook::{hook_start, hook_stop, StartOpts};
-use crate::outcome::{qa_comment_body, run_dir, validate_and_store, Outcome};
+use crate::outcome::{outcome_fail_reason, qa_comment_body, run_dir, validate_and_store, write_outcome_error, Outcome};
 use crate::provider::classify_stderr;
 use crate::tokens::{load_tokens, Tokens};
 use crate::types::Agent;
@@ -109,7 +109,10 @@ fn run_pi(root: &Path, opts: &RunOpts, tokens: &Tokens, run_id: &str) -> Result<
                 Ok(()) => ("ok".into(), "ok".into()),
                 Err(reason) => ("fail".into(), reason),
             },
-            Err(_) => ("fail".into(), "outcome_invalid".into()),
+            Err(_) => {
+                write_outcome_error(root, &opts.project, run_id, &outcome_fail_reason(&stdout), &stdout);
+                ("fail".into(), "outcome_invalid".into())
+            }
         }
     };
     if opts.step.contains("implement") {
@@ -244,5 +247,9 @@ mod tests {
         }).unwrap();
         assert_eq!(out.status, "fail");
         assert_eq!(out.summary, "outcome_invalid");
+        let errp = run_dir(&root, "toy", &out.run_id).join("outcome.error");
+        let err = fs::read_to_string(&errp).unwrap();
+        assert!(err.contains("reason: missing kind"));
+        assert!(!run_dir(&root, "toy", &out.run_id).join("outcome.json").exists());
     }
 }
