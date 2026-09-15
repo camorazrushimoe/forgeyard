@@ -6,6 +6,48 @@ Failed check → repeat that field, do not restart the whole wizard.
 
 v0 target: Apple Silicon Mac. Writes `factory/tokens/tokens.toml` mode 0600.
 
+## Terminal UX
+
+The wizard is still a TTY (no TUI crate required in v0). It must not look like a raw dump of prompts.
+
+Rules:
+
+- Number every field as `n / N` (example: `3 / 9`). N is the total step count in this wizard version.
+- Print a blank line plus a separator line before each step (`─` × 40, or ASCII `-` if the locale is not UTF-8).
+- Color is optional and must degrade: if stdout is not a TTY or `NO_COLOR` / `TERM=dumb` is set, print plain text.
+- Palette when color is on (ANSI, no extra deps):
+  - step header / number — bold cyan
+  - why / hint / example — dim
+  - ok after a check — green
+  - retry after a failed check — yellow
+  - fatal / refused — red
+  - generated values notice (`generated mcp.bind_token`) — green, never the value
+  - kept existing secret (`kept`) — dim
+- Secrets stay un-echoed even with color. Do not color the hidden input itself.
+- After a successful field: one short `ok` or `kept` line, then the next separator. Do not reprint the previous secret.
+- Skip (empty optional field): `skipped` in dim, not an error color.
+- Done banner stays one block, green + bold if color is on:
+
+```
+ready.
+  start: fy start
+```
+
+Example shape (color omitted here):
+
+```
+────────────────────────────────────────
+3 / 9  LLM token
+why: OpenAI-compatible key for Pi
+check: GET {endpoint}/models
+
+llm.default:
+ok
+```
+
+Do not animate, do not clear the whole screen, do not depend on a terminal graphics library.
+Tests may set `NO_COLOR=1` and assert the numbered headers + separators exist.
+
 ## Steps
 
 1. Telegram bot token  
@@ -32,9 +74,28 @@ v0 target: Apple Silicon Mac. Writes `factory/tokens/tokens.toml` mode 0600.
    Check: TCP + SSH auth with that user/host/password, timeout ~10s.  
    Do not log the password. Do not print it back.
 
+7. MCP bind token  
+   Why: every MCP request must present this bearer (local and remote).  
+   Unset + empty → generate 32 random bytes hex and store as `mcp.bind_token`.  
+   Already set + empty → keep existing token, print `kept`.  
+   Typed value length ≥ 16 → store as given (rotate).  
+   Typed `rotate` → generate and store a new token, print `mcp: rotated bind_token` (never the value).  
+   Check if typed as a token: length ≥ 16. Never echo.  
+   See [mcp.md](mcp.md).
+
+8. ngrok reserved URL (optional)  
+   Empty → no public tunnel. Example: `https://your-name.ngrok.app`  
+   Stored as `ngrok.url`. Check if non-empty: `https://` + host.  
+   This is an address, not a password. See [tunnel.md](tunnel.md).
+
+9. ngrok auth token (optional)  
+   Empty allowed. Stored as `ngrok.auth_token`.  
+   Needed only if step 8 is set and `fy start` should launch ngrok.  
+   Never echo. Never give this value to MCP clients.
+
 Done banner: `ready.  start: fy start`
 
-Re-run `fy onboard` to rotate any of the fields.
+Re-run `fy onboard` to change fields. Empty on a secret that is already set keeps it, except step 7 which also accepts `rotate`.
 
 ## Who reads cluster SSH
 

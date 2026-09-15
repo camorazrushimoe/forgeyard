@@ -14,7 +14,7 @@ curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/inst
 
 ```
 ~/.forgeyard/
-  bin/fy bin/forge bin/yard bin/watch
+  bin/fy bin/forge bin/yard bin/watch bin/mcp
   pack/
   factory/
     tokens/tokens.toml     # created empty from example, never overwritten
@@ -23,6 +23,7 @@ curl -fsSL https://raw.githubusercontent.com/camorazrushimoe/forgeyard/main/inst
 
 PATH symlink: `fy` (and the internal bins) under `~/.local/bin` (`FORGEYARD_PREFIX`).
 Pi is installed if missing. Failure to install Pi does not fail `fy` itself; `fy start` then shows `runner: missing`.
+Ngrok is not installed by this script. Missing ngrok skips the tunnel only.
 
 End of installer, no questions:
 
@@ -41,7 +42,7 @@ See [spec/cli.md](cli.md) and [spec/onboard.md](onboard.md).
 ## Uninstall
 
 ```
-rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.local/bin/watch
+rm -rf ~/.forgeyard ~/.local/bin/fy ~/.local/bin/forge ~/.local/bin/yard ~/.local/bin/watch ~/.local/bin/mcp
 ```
 
-Does not uninstall Pi.
+Does not uninstall Pi or ngrok.
