@@ -26,10 +26,10 @@ pub fn write_pid(path: &Path, pid: u32) -> Result<()> {
 }
 pub fn pid_alive(pid: u32) -> bool {
     if pid == 0 { return false; }
-    match fs::read_to_string(format!("/proc/{pid}/stat")) {
-        Ok(s) => !s.split_whitespace().nth(2).map(|st| st == "Z").unwrap_or(true),
-        Err(_) => false,
+    if let Ok(s) = fs::read_to_string(format!("/proc/{pid}/stat")) {
+        return !s.split_whitespace().nth(2).map(|st| st == "Z").unwrap_or(true);
     }
+    Command::new("kill").args(["-0", &pid.to_string()]).status().map(|s| s.success()).unwrap_or(false)
 }
 pub fn kill_pid(pid: u32) {
     let _ = Command::new("kill").arg(pid.to_string()).status();
@@ -226,5 +226,11 @@ mod tests {
         fs::write(&p, "toy SleepBusy busy\nsk-abcdefghijklmnopqrstuvwxyz leaked\n").unwrap();
         let (_, lines) = drain_text_lines(&p, 0);
         assert_eq!(lines[0], "toy SleepBusy busy"); assert!(lines[1].contains("REDACTED"));
+    }
+    #[test]
+    fn pid_alive_self_and_zero() {
+        assert!(pid_alive(std::process::id()));
+        assert!(!pid_alive(0));
+        assert!(!pid_alive(1_000_000_007));
     }
 }
