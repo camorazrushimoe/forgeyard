@@ -30,7 +30,7 @@ mkdir -p "$HOME_DIR/bin" "$HOME_DIR/pack" "$HOME_DIR/factory/tokens" "$HOME_DIR/
 
 copy_bins() {
   src="$1"
-  for b in fy forge yard watch; do
+  for b in fy forge yard watch mcp; do
     if [ -f "$src/$b" ]; then
       cp "$src/$b" "$HOME_DIR/bin/$b"
       chmod +x "$HOME_DIR/bin/$b"
@@ -74,7 +74,7 @@ if [ ! -f "$DEST" ]; then
   chmod 600 "$DEST" 2>/dev/null || true
 fi
 
-for b in fy forge yard watch; do
+for b in fy forge yard watch mcp; do
   if [ -x "$HOME_DIR/bin/$b" ]; then
     ln -sf "$HOME_DIR/bin/$b" "$PREFIX/$b"
   fi
