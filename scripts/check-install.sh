@@ -7,7 +7,7 @@ bins="$tmp/src"
 home="$tmp/home"
 pref="$tmp/pref"
 mkdir -p "$bins"
-for b in fy forge yard watch; do
+for b in fy forge yard watch mcp; do
   printf '#!/bin/sh\necho %s\n' "$b" > "$bins/$b"
   chmod +x "$bins/$b"
 done
@@ -19,6 +19,7 @@ test -x "$home/bin/fy"
 test -x "$home/bin/forge"
 test -x "$home/bin/yard"
 test -x "$home/bin/watch"
+test -x "$home/bin/mcp"
 test -L "$pref/fy"
 test -f "$home/factory/tokens/tokens.toml"
 test -d "$home/factory/projects"

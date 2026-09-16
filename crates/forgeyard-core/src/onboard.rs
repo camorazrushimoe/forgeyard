@@ -5,6 +5,7 @@ use std::process::Command;
 use std::time::Duration;
 
 use crate::error::{ForgeError, Result};
+use crate::mcp::generate_bind_token;
 use crate::tokens::{load_tokens, save_tokens, Tokens};
 
 pub const DONE: &str = "ready.  start: fy start\n";
@@ -89,11 +90,19 @@ pub fn check_field(probe: &dyn Probe, name: &str, value: &str, tokens: &Tokens) 
             let port = tokens.get("cluster.port").unwrap_or("22").parse().unwrap_or(22);
             probe.ssh_auth(user, host, port, value)
         }
+        "mcp.bind_token" => {
+            if value.is_empty() || value == "rotate" || value.len() >= 16 { Ok(()) }
+            else { Err(ForgeError::Usage("token length >= 16 or rotate or empty".into())) }
+        }
+        "ngrok.url" | "ngrok.auth_token" => Ok(()),
         _ => Err(ForgeError::Usage(format!("unknown field {name}"))),
     }
 }
 
-const ORDER: &[&str] = &["telegram.bot_token", "llm.endpoint", "llm.default", "github.pat", "cluster.target", "cluster.password"];
+const ORDER: &[&str] = &[
+    "telegram.bot_token", "llm.endpoint", "llm.default", "github.pat",
+    "cluster.target", "cluster.password", "mcp.bind_token", "ngrok.url", "ngrok.auth_token",
+];
 
 fn prompt_for(name: &str) -> &'static str {
     match name {
@@ -103,12 +112,35 @@ fn prompt_for(name: &str) -> &'static str {
         "github.pat" => "github PAT (repo scope): ",
         "cluster.target" => "ssh user@host[:port]: ",
         "cluster.password" => "ssh password: ",
+        "mcp.bind_token" => "mcp bind token (empty = generate/keep, rotate = mint): ",
+        "ngrok.url" => "ngrok reserved url (empty = skip tunnel): ",
+        "ngrok.auth_token" => "ngrok auth token (empty = skip tunnel): ",
         _ => "value: ",
     }
 }
 
 fn secret_field(name: &str) -> bool {
-    matches!(name, "telegram.bot_token" | "llm.default" | "github.pat" | "cluster.password")
+    matches!(name, "telegram.bot_token" | "llm.default" | "github.pat" | "cluster.password" | "mcp.bind_token" | "ngrok.auth_token")
+}
+
+fn apply_mcp_bind(t: &mut Tokens, value: &str, out: &mut dyn Write) -> Result<()> {
+    let existing = t.get("mcp.bind_token").unwrap_or("").to_string();
+    if value.is_empty() {
+        if existing.is_empty() {
+            t.set("mcp.bind_token", &generate_bind_token())?;
+            writeln!(out, "mcp: generated bind_token").ok();
+        } else {
+            writeln!(out, "kept").ok();
+        }
+        return Ok(());
+    }
+    if value == "rotate" {
+        t.set("mcp.bind_token", &generate_bind_token())?;
+        writeln!(out, "mcp: rotated bind_token").ok();
+        return Ok(());
+    }
+    t.set("mcp.bind_token", value)?;
+    Ok(())
 }
 
 pub fn run_wizard(root: &Path, probe: &dyn Probe, input: &mut dyn BufRead, out: &mut dyn Write, err: &mut dyn Write) -> Result<()> {
@@ -124,7 +156,14 @@ pub fn run_wizard(root: &Path, probe: &dyn Probe, input: &mut dyn BufRead, out: 
             if secret_field(name) { writeln!(out).ok(); }
             let value = line.trim().to_string();
             match check_field(probe, name, &value, &tokens) {
-                Ok(()) => { apply_field(&mut tokens, name, &value)?; break; }
+                Ok(()) => {
+                    if *name == "mcp.bind_token" {
+                        apply_mcp_bind(&mut tokens, &value, out)?;
+                    } else {
+                        apply_field(&mut tokens, name, &value)?;
+                    }
+                    break;
+                }
                 Err(e) => { writeln!(err, "check failed: {e}").ok(); }
             }
         }
@@ -163,10 +202,13 @@ mod tests {
     fn empty_telegram_ok() {
         assert!(check_field(&Fake, "telegram.bot_token", "", &Tokens::default()).is_ok());
     }
+    fn base_script() -> &'static str {
+        "\nhttp://127.0.0.1:9/v1\nsk-x\nbadpat\ngoodpat\ndeploy@10.0.0.1\nsecret-pass\n"
+    }
     #[test]
     fn wizard_retries_bad_pat_then_saves_0600() {
         let root = tmp();
-        let script = "\nhttp://127.0.0.1:9/v1\nsk-x\nbadpat\ngoodpat\ndeploy@10.0.0.1\nsecret-pass\n";
+        let script = format!("{}\n\n\n", base_script());
         let mut input = script.as_bytes();
         let mut out = Vec::new();
         let mut err = Vec::new();
@@ -177,5 +219,42 @@ mod tests {
         use std::os::unix::fs::PermissionsExt;
         let mode = std::fs::metadata(crate::tokens::tokens_path(&root)).unwrap().permissions();
         assert_eq!(mode.mode() & 0o777, 0o600);
+        let tok = load_tokens(&root).unwrap();
+        assert!(tok.get("mcp.bind_token").unwrap().len() >= 16);
+    }
+    #[test]
+    fn reonboard_empty_step7_keeps_token() {
+        let root = tmp();
+        let first = format!("{}\n\n\n", base_script());
+        let mut input = first.as_bytes();
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        run_wizard(&root, &Fake, &mut input, &mut out, &mut err).unwrap();
+        let first_tok = load_tokens(&root).unwrap().get("mcp.bind_token").unwrap().to_string();
+        let second = format!("{}\n\n\n", base_script());
+        let mut input = second.as_bytes();
+        out.clear(); err.clear();
+        run_wizard(&root, &Fake, &mut input, &mut out, &mut err).unwrap();
+        let second_tok = load_tokens(&root).unwrap().get("mcp.bind_token").unwrap().to_string();
+        assert_eq!(first_tok, second_tok);
+        assert!(String::from_utf8_lossy(&out).contains("kept"));
+    }
+    #[test]
+    fn rotate_mints_new_token() {
+        let root = tmp();
+        let first = format!("{}\n\n\n", base_script());
+        let mut input = first.as_bytes();
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        run_wizard(&root, &Fake, &mut input, &mut out, &mut err).unwrap();
+        let first_tok = load_tokens(&root).unwrap().get("mcp.bind_token").unwrap().to_string();
+        let second = format!("{}rotate\n\n", base_script());
+        let mut input = second.as_bytes();
+        out.clear(); err.clear();
+        run_wizard(&root, &Fake, &mut input, &mut out, &mut err).unwrap();
+        let second_tok = load_tokens(&root).unwrap().get("mcp.bind_token").unwrap().to_string();
+        assert_ne!(first_tok, second_tok);
+        assert!(String::from_utf8_lossy(&out).contains("mcp: rotated bind_token"));
+        assert!(!String::from_utf8_lossy(&out).contains(&second_tok));
     }
 }

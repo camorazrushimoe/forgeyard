@@ -23,8 +23,8 @@ jobs:
       - name: pack
         run: |
           mkdir -p pack-bin
-          for b in fy forge yard watch; do cp "target/release/$b" pack-bin/; done
-          tar -C pack-bin -czf forgeyard-darwin-arm64.tar.gz fy forge yard watch
+          for b in fy forge yard watch mcp; do cp "target/release/$b" pack-bin/; done
+          tar -C pack-bin -czf forgeyard-darwin-arm64.tar.gz fy forge yard watch mcp
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
