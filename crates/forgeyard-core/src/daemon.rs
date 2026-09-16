@@ -48,8 +48,13 @@ fn which(name: &str) -> bool {
 }
 pub fn runner_missing() -> bool { !which("pi") }
 fn spawn_cmd(cmd: &str, args: &[&str], root: &Path) -> Result<u32> {
-    let child = Command::new(cmd).args(args).env("FORGEYARD_ROOT", root).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).spawn()
-        .map_err(|e| ForgeError::Precondition(format!("spawn {cmd}: {e}")))?;
+    spawn_cmd_env(cmd, args, root, &[])
+}
+fn spawn_cmd_env(cmd: &str, args: &[&str], root: &Path, extra: &[(&str, &str)]) -> Result<u32> {
+    let mut c = Command::new(cmd);
+    c.args(args).env("FORGEYARD_ROOT", root).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null());
+    for (k, v) in extra { c.env(k, v); }
+    let child = c.spawn().map_err(|e| ForgeError::Precondition(format!("spawn {cmd}: {e}")))?;
     Ok(child.id())
 }
 fn spawn_watch(cmd: &str, args: &[&str], root: &Path) -> Result<u32> {
@@ -134,7 +139,7 @@ pub fn start_mcp_and_tunnel(root: &Path, notices: &mut Vec<String>) -> Option<u3
     let host = url.trim().trim_end_matches('/').trim_start_matches("https://").trim_start_matches("http://");
     match resolve_named("FORGEYARD_NGROK_BIN", "ngrok") {
         None => notices.push("tunnel: missing; install ngrok".into()),
-        Some(bin) => match spawn_cmd(&bin, &["http", &port.to_string(), "--url", host], root) {
+        Some(bin) => match spawn_cmd_env(&bin, &["http", &port.to_string(), "--url", host], root, &[("NGROK_AUTHTOKEN", auth)]) {
             Ok(pid) => { let _ = write_pid(&ngrok_pid_path(root), pid); notices.push(format!("mcp: public {url}/mcp")); }
             Err(_) => notices.push("tunnel: missing; install ngrok".into()),
         },
