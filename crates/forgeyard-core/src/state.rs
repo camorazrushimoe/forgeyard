@@ -2,10 +2,12 @@ use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
 
+use crate::daemon::pid_alive;
 use crate::error::{ForgeError, Result};
+use crate::events::{decode_event_line, events_path};
 use crate::lock::{state_lock_path, FileLock};
 use crate::paths::project_dir;
-use crate::types::{Agent, AgentStatus};
+use crate::types::{Agent, AgentStatus, Hook};
 
 /// Project busy lock + current step. SPEC.md §6. schema = 1.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -112,9 +114,47 @@ pub fn become_idle(root: &Path, project: &str) -> Result<State> {
         State::idle(project)
     };
     st.agent_status = AgentStatus::Idle;
+    st.run_id = String::new();
     st.updated_at = now_rfc3339();
     atomic_write(&path, &encode_state(&st)?)?;
     Ok(st)
+}
+
+/// If state says busy but the run already stopped or its pid is dead, idle it.
+/// Returns whether the project is still actually busy.
+pub fn reconcile_stale_busy(root: &Path, project: &str) -> Result<bool> {
+    let st = load_state(root, project)?;
+    if !st.is_busy() {
+        return Ok(false);
+    }
+    let text = fs::read_to_string(events_path(&project_dir(root, project))).unwrap_or_default();
+    let mut start_pid: Option<u32> = None;
+    let mut saw_stop = false;
+    for line in text.lines() {
+        let Ok(ev) = decode_event_line(line) else { continue };
+        if !st.run_id.is_empty() && ev.run_id != st.run_id {
+            continue;
+        }
+        match ev.hook {
+            Hook::Start => {
+                start_pid = ev.pid;
+                saw_stop = false;
+            }
+            Hook::Stop => saw_stop = true,
+            _ => {}
+        }
+    }
+    if saw_stop {
+        become_idle(root, project)?;
+        return Ok(false);
+    }
+    if let Some(pid) = start_pid {
+        if pid_alive(pid) {
+            return Ok(true);
+        }
+    }
+    become_idle(root, project)?;
+    Ok(false)
 }
 
 fn read_state_unlocked(path: &Path) -> Result<State> {
@@ -236,6 +276,8 @@ fn now_rfc3339() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::events::{append_event, Event};
+    use crate::hook::{hook_start, hook_stop, StartOpts};
     use std::env;
     use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -294,5 +336,41 @@ mod tests {
         assert_eq!(err.exit(), crate::Exit::Busy);
         become_idle(&root, "toy").unwrap();
         assert!(become_busy(&root, "toy", Agent::Qa, "qa", "run", "r3", "").is_ok());
+    }
+
+    #[test]
+    fn idle_clears_run_id() {
+        let root = tmp();
+        become_busy(&root, "toy", Agent::TechPm, "spec-review", "review", "dead-run", "").unwrap();
+        let st = become_idle(&root, "toy").unwrap();
+        assert!(!st.is_busy());
+        assert!(st.run_id.is_empty());
+    }
+
+    #[test]
+    fn stop_fail_releases_busy() {
+        let root = tmp();
+        let id = hook_start(&root, StartOpts {
+            project: "toy", agent: Agent::TechPm, workflow: "spec-review", step: "review", input: "",
+        }).unwrap();
+        hook_stop(&root, "toy", Agent::TechPm, &id, "review", "fail", "outcome_invalid").unwrap();
+        assert!(!reconcile_stale_busy(&root, "toy").unwrap());
+        let st = load_state(&root, "toy").unwrap();
+        assert!(!st.is_busy());
+        assert!(st.run_id.is_empty());
+    }
+
+    #[test]
+    fn dead_pid_without_stop_releases_busy() {
+        let root = tmp();
+        become_busy(&root, "toy", Agent::TechPm, "spec-review", "review", "r-dead", "").unwrap();
+        let mut ev = Event::new("toy", Hook::Start);
+        ev.run_id = "r-dead".into();
+        ev.agent = Agent::TechPm;
+        ev.pid = Some(1_000_000_007);
+        ev.status = "ok".into();
+        append_event(&root, &ev).unwrap();
+        assert!(!reconcile_stale_busy(&root, "toy").unwrap());
+        assert!(!load_state(&root, "toy").unwrap().is_busy());
     }
 }
