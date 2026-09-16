@@ -9,6 +9,7 @@ use crate::daemon::{pid_alive, read_pid, runner_missing, watch_pid_path, yard_pi
 use crate::error::{ForgeError, Result};
 use crate::events::Event;
 use crate::intake::fy_do;
+use crate::outcome::{encode_outcome, latest_outcomes};
 use crate::paths::project_dir;
 use crate::project::list_bound_projects;
 use crate::spec_cache::{refresh_spec_cache, LiveSpecFetcher};
@@ -189,7 +190,10 @@ fn call_tool(root: &Path, name: &str, args: &str) -> Result<String> {
             if project.is_empty() { return Err(ForgeError::Usage("project required".into())); }
             let dir = project_dir(root, &project);
             if !dir.join("PROJECT.toml").exists() { return Err(ForgeError::Precondition(format!("unknown project: {project}"))); }
-            Ok("none\n".into())
+            match latest_outcomes(root, &project).into_iter().last() {
+                Some((id, o)) => Ok(format!("run_id={id}\n{}", encode_outcome(&o))),
+                None => Ok("none\n".into()),
+            }
         }
         "spec_refresh" => {
             if project.is_empty() { return Err(ForgeError::Usage("project required".into())); }
@@ -289,6 +293,8 @@ fn write_http(s: &mut TcpStream, status: u16, body: &str) -> Result<()> {
 mod tests {
     use super::*;
     use crate::intake::fy_do;
+    use crate::outcome::validate_and_store;
+    use crate::types::Agent;
     use std::sync::atomic::{AtomicU64, Ordering};
     static N: AtomicU64 = AtomicU64::new(0);
     fn tmp() -> std::path::PathBuf {
@@ -322,6 +328,18 @@ mod tests {
         let out = handle_http(&root, "tokentokentoken16", Some("Bearer tokentokentoken16"), body);
         assert_eq!(out.status, 200);
         assert!(out.body.contains(&want.replace('\n', "\\n")), "{}", out.body);
+    }
+    #[test]
+    fn last_outcome_reads_stored_file() {
+        let root = tmp();
+        fy_do(&root, "https://github.com/acme/toy", "x").unwrap();
+        let stdout = r#"{"kind":"qa","pr":9,"verdict":"no_merge","summary":"fail"}"#;
+        validate_and_store(&root, "toy", "20260101T000000Z-aaaa", Agent::Qa, "qa-on-cluster", stdout).unwrap();
+        let body = r#"{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"last_outcome","arguments":{"project":"toy"}}}"#;
+        let out = handle_http(&root, "tokentokentoken16", Some("Bearer tokentokentoken16"), body);
+        assert_eq!(out.status, 200);
+        assert!(out.body.contains("run_id=20260101T000000Z-aaaa"), "{}", out.body);
+        assert!(out.body.contains("no_merge"), "{}", out.body);
     }
     #[test]
     fn tools_cannot_merge() { assert!(!TOOLS.iter().any(|t| t.contains("merge"))); }
