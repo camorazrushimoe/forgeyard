@@ -1,0 +1,13 @@
+[package]
+name = "forgeyard-mcp"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "MCP Streamable HTTP control plane for Forgeyard"
+
+[[bin]]
+name = "mcp"
+path = "src/main.rs"
+
+[dependencies]
+forgeyard-core = { workspace = true }
