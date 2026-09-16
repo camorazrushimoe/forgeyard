@@ -3,9 +3,9 @@ use std::io::{self, Write};
 use std::process::{Command, ExitCode};
 
 use forgeyard_core::{
-    current_project, dispatch_action, factory_root, list_bound_projects, load_binding, load_state,
-    publish_after_implement, record_tick, refresh_spec_cache, tick, Action, Agent, Exit, GhWatchIo, LivePublisher,
-    LiveSpecFetcher, Plan, RealGh, WatchExec,
+    current_project, dispatch_action, factory_root, list_bound_projects, load_binding,
+    publish_after_implement, record_tick, reconcile_stale_busy, refresh_spec_cache, tick, Action, Agent, Exit,
+    GhWatchIo, LivePublisher, LiveSpecFetcher, Plan, RealGh, WatchExec,
 };
 
 struct ShellExec;
@@ -30,7 +30,7 @@ impl WatchExec for ShellExec {
 
 fn tick_one(root: &std::path::Path, p: &str) -> Action {
     let _ = refresh_spec_cache(root, p, &LiveSpecFetcher);
-    let busy = load_state(root, p).map(|s| s.is_busy()).unwrap_or(false);
+    let busy = reconcile_stale_busy(root, p).unwrap_or(false);
     let gh = RealGh;
     let io = GhWatchIo::live(root, p, busy, &gh);
     let mut plan = forgeyard_core::watch::load_plan(root, p)
