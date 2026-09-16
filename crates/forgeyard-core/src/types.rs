@@ -12,6 +12,7 @@ pub enum Agent {
     Yard,
     Pi,
     Human,
+    Mcp,
 }
 
 impl Agent {
@@ -25,6 +26,7 @@ impl Agent {
             Agent::Yard => "yard",
             Agent::Pi => "pi",
             Agent::Human => "human",
+            Agent::Mcp => "mcp",
         }
     }
 }
@@ -47,6 +49,7 @@ impl FromStr for Agent {
             "yard" => Ok(Agent::Yard),
             "pi" => Ok(Agent::Pi),
             "human" => Ok(Agent::Human),
+            "mcp" => Ok(Agent::Mcp),
             other => Err(format!("unknown agent: {other}")),
         }
     }
@@ -64,6 +67,7 @@ pub enum Hook {
     Panel,
     Run,
     Intake,
+    Mcp,
 }
 
 impl Hook {
@@ -78,6 +82,7 @@ impl Hook {
             Hook::Panel => "panel",
             Hook::Run => "run",
             Hook::Intake => "intake",
+            Hook::Mcp => "mcp",
         }
     }
 }
@@ -101,6 +106,7 @@ impl FromStr for Hook {
             "panel" => Ok(Hook::Panel),
             "run" => Ok(Hook::Run),
             "intake" => Ok(Hook::Intake),
+            "mcp" => Ok(Hook::Mcp),
             other => Err(format!("unknown hook: {other}")),
         }
     }
@@ -137,6 +143,7 @@ mod tests {
             Agent::Yard,
             Agent::Pi,
             Agent::Human,
+            Agent::Mcp,
         ] {
             assert_eq!(a.as_str().parse::<Agent>().unwrap(), a);
         }
@@ -154,6 +161,7 @@ mod tests {
             Hook::Panel,
             Hook::Run,
             Hook::Intake,
+            Hook::Mcp,
         ] {
             assert_eq!(h.as_str().parse::<Hook>().unwrap(), h);
         }
