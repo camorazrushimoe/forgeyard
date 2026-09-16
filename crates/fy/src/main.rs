@@ -4,7 +4,7 @@ use std::process::ExitCode;
 
 use forgeyard_core::{
     bind_project, current_project, drain_hook_lines, drain_text_lines, factory_root, fy_do, list_bound_projects,
-    project_dir, render_status, render_why, run_wizard, runner_missing, start_children, stop_daemons,
+    project_dir, render_status, render_why, run_wizard, runner_missing, start_factory, stop_daemons,
     Exit, FY_HELP, LiveProbe,
 };
 
@@ -42,11 +42,14 @@ fn main() -> ExitCode {
         }
         Some("start") => {
             if runner_missing() { println!("runner: missing"); }
-            let _ = std::fs::write(root.join("fy-start.pid"), format!("{}\n", std::process::id()));
-            match start_children(&root) {
-                Ok((w, y)) => {
-                    println!("watch pid {w}");
-                    if let Some(yp) = y { println!("yard pid {yp}"); } else { println!("yard skipped"); }
+            let _ = std::fs::write(root.join("fy-start.pid"), format!("{}
+", std::process::id()));
+            match start_factory(&root) {
+                Ok(report) => {
+                    println!("watch pid {}", report.watch_pid);
+                    if let Some(yp) = report.yard_pid { println!("yard pid {yp}"); } else { println!("yard skipped"); }
+                    if let Some(mp) = report.mcp_pid { println!("mcp pid {mp}"); }
+                    for n in &report.notices { println!("{n}"); }
                     if env::var("FORGEYARD_START_ONCE").ok().as_deref() == Some("1") {
                         return Exit::Ok.into();
                     }
