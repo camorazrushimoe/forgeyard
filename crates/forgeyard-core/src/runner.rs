@@ -213,3 +213,33 @@ fn run_pi(root: &Path, opts: &RunOpts, tokens: &Tokens, run_id: &str) -> Result<
     }
     Ok((status, summary))
 }
+
+fn publish_qa_if_needed(root: &Path, opts: &RunOpts, run_id: &str, outcome: &Outcome) -> std::result::Result<(), String> {
+    let Outcome::Qa { pr, .. } = outcome else { return Ok(()); };
+    let Some(body) = qa_comment_body(outcome, run_id) else { return Ok(()); };
+    let Some(bind) = crate::gh_facts::load_binding(root, &opts.project) else { return Ok(()); };
+    let repo = format!("{}/{}", bind.owner, bind.repo);
+    let gh = which_in(opts.path_prefix.as_deref(), "gh").ok_or_else(|| "qa_comment_publish".to_string())?;
+    match Command::new(gh).args(["pr", "comment", &pr.to_string(), "--repo", &repo, "--body", &body]).status() {
+        Ok(s) if s.success() => Ok(()),
+        _ => Err("qa_comment_publish".into()),
+    }
+}
+
+fn bound_text(s: &str) -> String {
+    if s.len() <= MAX_STREAM { s.to_string() } else { format!("{}...\n[truncated]\n", &s[..MAX_STREAM]) }
+}
+
+fn which_in(prefix: Option<&Path>, name: &str) -> Option<PathBuf> {
+    if let Some(dir) = prefix {
+        let p = dir.join(name);
+        return if p.is_file() { Some(p) } else { None };
+    }
+    if let Ok(paths) = env::var("PATH") {
+        for dir in env::split_paths(&paths) {
+            let p = dir.join(name);
+            if p.is_file() { return Some(p); }
+        }
+    }
+    None
+}
