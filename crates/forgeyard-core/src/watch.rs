@@ -81,6 +81,7 @@ pub enum Action {
     MergePr { item: String },
     PlanDone,
     RetryBlocked { item: String },
+    BlockedOnError,
 }
 
 pub trait WatchIo {
@@ -91,6 +92,7 @@ pub trait WatchIo {
     fn pr_open(&self, branch: &str) -> bool;
     fn pr_verdict(&self, branch: &str) -> Option<PrVerdict>;
     fn default_branch(&self) -> String;
+    fn review_fail_streak(&self) -> u32 { 0 }
 }
 
 pub fn tick(plan: &mut Plan, io: &dyn WatchIo) -> Action {
@@ -98,7 +100,12 @@ pub fn tick(plan: &mut Plan, io: &dyn WatchIo) -> Action {
     if !io.spec_present() { return Action::BlockedOnSpec; }
     if io.spec_stale() { return Action::BlockedOnSpecRefresh; }
     match io.spec_verdict() {
-        None | Some(SpecVerdict::Reject) => return Action::RunTechPm,
+        None | Some(SpecVerdict::Reject) => {
+            if io.review_fail_streak() >= crate::events::REVIEW_FAIL_CAP {
+                return Action::BlockedOnError;
+            }
+            return Action::RunTechPm;
+        }
         Some(SpecVerdict::Approve) => {}
     }
     if plan.items.is_empty() {
@@ -255,6 +262,24 @@ mod tests {
     fn no_spec_blocks() { let mut p = Plan { default_branch: "main".into(), items: vec![] }; let mut io = base(); io.spec = false; assert_eq!(tick(&mut p, &io), Action::BlockedOnSpec); }
     #[test]
     fn unreviewed_spec_is_a() { let mut p = Plan { default_branch: "main".into(), items: vec![] }; let mut io = base(); io.verdict = None; assert_eq!(tick(&mut p, &io), Action::RunTechPm); }
+    #[test]
+    fn review_fail_cap_blocks() {
+        struct Cap(Fake);
+        impl WatchIo for Cap {
+            fn busy(&self) -> bool { self.0.busy }
+            fn spec_present(&self) -> bool { self.0.spec }
+            fn spec_stale(&self) -> bool { self.0.stale }
+            fn spec_verdict(&self) -> Option<SpecVerdict> { self.0.verdict }
+            fn pr_open(&self, _b: &str) -> bool { self.0.pr }
+            fn pr_verdict(&self, _b: &str) -> Option<PrVerdict> { self.0.pr_v }
+            fn default_branch(&self) -> String { self.0.def.clone() }
+            fn review_fail_streak(&self) -> u32 { 3 }
+        }
+        let mut p = Plan { default_branch: "main".into(), items: vec![] };
+        let mut io = base();
+        io.verdict = None;
+        assert_eq!(tick(&mut p, &Cap(io)), Action::BlockedOnError);
+    }
     #[test]
     fn approved_no_plan_seeds_b() { let mut p = Plan { default_branch: String::new(), items: vec![] }; assert_eq!(tick(&mut p, &base()), Action::SeedPlan); assert_eq!(p.items[0].status, ItemStatus::Ready); }
     #[test]

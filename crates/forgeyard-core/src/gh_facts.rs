@@ -143,6 +143,9 @@ impl WatchIo for GhWatchIo<'_> {
     fn default_branch(&self) -> String {
         parse_default_branch(&self.default_json)
     }
+    fn review_fail_streak(&self) -> u32 {
+        crate::events::consecutive_review_fails(self.root, self.project)
+    }
 }
 
 #[cfg(test)]

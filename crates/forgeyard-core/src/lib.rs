@@ -49,7 +49,7 @@ pub use panel::{handle as panel_handle, preflight as panel_preflight, PanelState
 pub use paths::{default_factory_root, factory_root, install_root, project_dir};
 pub use project::{current_project, list_bound_projects, read_event_log, require_spec};
 pub use publish::{publish_after_implement, LivePublisher};
-pub use state::{become_busy, become_idle, load_state, save_state, State};
+pub use state::{become_busy, become_idle, load_state, reconcile_stale_busy, save_state, State};
 pub use status::render_status;
 pub use tokens::{list_rows, load_meta, load_tokens, save_tokens, Meta, Tokens, CANONICAL};
 pub use types::{Agent, AgentStatus, Hook};

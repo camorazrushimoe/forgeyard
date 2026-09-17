@@ -72,6 +72,28 @@ pub fn append_event(root: &Path, ev: &Event) -> Result<()> {
     Ok(())
 }
 
+/// Consecutive tech-pm `hook: stop` failures at the tail of the log.
+/// A later ok stop resets the streak to 0.
+pub const REVIEW_FAIL_CAP: u32 = 3;
+
+pub fn consecutive_review_fails(root: &Path, project: &str) -> u32 {
+    let text = std::fs::read_to_string(events_path(&project_dir(root, project))).unwrap_or_default();
+    let mut n = 0u32;
+    for line in text.lines().rev() {
+        let Ok(ev) = decode_event_line(line) else { continue };
+        if ev.hook != Hook::Stop || ev.agent != Agent::TechPm {
+            continue;
+        }
+        let bad = ev.status == "fail" || ev.status == "crash" || ev.summary == "outcome_invalid";
+        if bad {
+            n += 1;
+            continue;
+        }
+        break;
+    }
+    n
+}
+
 pub fn encode_event(ev: &Event) -> String {
     let mut s = String::from("{");
     push_str(&mut s, "ts", &ev.ts);
