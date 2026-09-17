@@ -108,8 +108,6 @@ fn review_task(root: &Path, opts: &RunOpts) -> String {
     task
 }
 
-/// pi --mode json emits session events. Factory outcome is a {kind:...} object
-/// that may sit inside message text. Prefer a raw outcome line when present.
 pub fn outcome_text(stdout: &str) -> String {
     if parse_outcome(stdout).is_some() {
         return stdout.to_string();
@@ -127,7 +125,6 @@ pub fn outcome_text(stdout: &str) -> String {
 }
 
 fn json_str(text: &str, key: &str) -> Option<String> {
-    // Require a key (`"text":`), not a value (`"type":"text"`).
     let pat = format!("\"{key}\"");
     let mut from = 0;
     let i = loop {
@@ -152,4 +149,67 @@ fn json_str(text: &str, key: &str) -> Option<String> {
         }
     }
     None
+}
+
+fn run_pi(root: &Path, opts: &RunOpts, tokens: &Tokens, run_id: &str) -> Result<(String, String)> {
+    let task = review_task(root, opts);
+    let prompt = build_envelope(&opts.project, opts.agent, &opts.step, &task, tokens, opts.pack_dir.as_deref());
+    let endpoint = llm_endpoint(tokens).unwrap();
+    let key = llm_key(tokens);
+    let model = role_model(tokens, opts.agent);
+    let pi = which_in(opts.path_prefix.as_deref(), "pi").ok_or_else(|| ForgeError::Precondition("runner_missing".into()))?;
+    let mut cmd = Command::new(pi);
+    cmd.arg("-p").arg("--mode").arg("json");
+    if opts.agent == Agent::TechPm {
+        cmd.arg("--no-tools");
+    }
+    if !model.is_empty() {
+        cmd.arg("--model").arg(&model);
+    }
+    cmd.arg(&prompt)
+        .env("OPENAI_BASE_URL", &endpoint)
+        .env("OPENAI_API_KEY", &key)
+        .env("FORGEYARD_PROJECT", &opts.project)
+        .stdin(Stdio::null()).stdout(Stdio::piped()).stderr(Stdio::piped());
+    if !model.is_empty() {
+        cmd.env("PI_MODEL", &model);
+    }
+    if needs_cluster(opts.agent, &opts.step) {
+        let host = tokens.get("cluster.host").unwrap_or("");
+        let user = tokens.get("cluster.user").unwrap_or("");
+        let port = tokens.get("cluster.port").unwrap_or("22");
+        cmd.env("FORGEYARD_SSH", format!("{user}@{host}:{port}"));
+        cmd.env("FORGEYARD_REMOTE", format!("/srv/forgeyard/{}/repo", opts.project));
+    }
+    let out = cmd.output().map_err(|e| ForgeError::Precondition(format!("pi spawn failed: {e}")))?;
+    let stdout = bound_text(&String::from_utf8_lossy(&out.stdout));
+    let stderr = bound_text(&sanitize(&String::from_utf8_lossy(&out.stderr)));
+    let dir = run_dir(root, &opts.project, run_id);
+    fs::create_dir_all(&dir)?;
+    fs::write(dir.join("stdout.jsonl"), &stdout)?;
+    fs::write(dir.join("stderr.log"), &stderr)?;
+    let extracted = outcome_text(&stdout);
+    let rc = out.status.code().unwrap_or(1);
+    let (status, summary) = if !out.status.success() {
+        ("crash".into(), format!("pi_exit_{rc}"))
+    } else if let Some(class) = classify_stderr(&stderr) {
+        ("fail".into(), class)
+    } else {
+        match validate_and_store(root, &opts.project, run_id, opts.agent, &opts.step, &extracted) {
+            Ok(outcome) => match publish_qa_if_needed(root, opts, run_id, &outcome) {
+                Ok(()) => ("ok".into(), "ok".into()),
+                Err(reason) => ("fail".into(), reason),
+            },
+            Err(_) => {
+                write_outcome_error(root, &opts.project, run_id, &outcome_fail_reason(&extracted), &extracted);
+                ("fail".into(), "outcome_invalid".into())
+            }
+        }
+    };
+    if opts.step.contains("implement") {
+        if let Some(gh) = which_in(opts.path_prefix.as_deref(), "gh") {
+            let _ = Command::new(gh).args(["pr", "list", "--json", "number,url,title"]).output();
+        }
+    }
+    Ok((status, summary))
 }
