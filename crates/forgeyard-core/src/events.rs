@@ -93,3 +93,71 @@ pub fn consecutive_review_fails(root: &Path, project: &str) -> u32 {
     }
     n
 }
+
+pub fn encode_event(ev: &Event) -> String {
+    let mut s = String::from("{");
+    push_str(&mut s, "ts", &ev.ts);
+    push_str(&mut s, "project", &ev.project);
+    if !ev.run_id.is_empty() {
+        push_str(&mut s, "run_id", &ev.run_id);
+    }
+    push_str(&mut s, "agent", ev.agent.as_str());
+    push_str(&mut s, "hook", ev.hook.as_str());
+    if !ev.step.is_empty() {
+        push_str(&mut s, "step", &ev.step);
+    }
+    if !ev.status.is_empty() {
+        push_str(&mut s, "status", &ev.status);
+    }
+    if let Some(p) = ev.pid {
+        s.push_str(&format!(",\"pid\":{p}"));
+    }
+    if let Some(d) = ev.duration_s {
+        s.push_str(&format!(",\"duration_s\":{d}"));
+    }
+    if !ev.artifact.is_empty() {
+        push_str(&mut s, "artifact", &ev.artifact);
+    }
+    if !ev.input.is_empty() {
+        push_str(&mut s, "input", &truncate(&sanitize(&ev.input), 240));
+    }
+    if !ev.summary.is_empty() {
+        push_str(&mut s, "summary", &truncate(&sanitize(&ev.summary), 400));
+    }
+    s.push('}');
+    s
+}
+
+fn push_str(s: &mut String, k: &str, v: &str) {
+    if s.len() > 1 {
+        s.push(',');
+    }
+    s.push('"');
+    s.push_str(k);
+    s.push_str("\":\"");
+    s.push_str(&esc(v));
+    s.push('"');
+}
+
+fn esc(s: &str) -> String {
+    s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', " ")
+}
+
+fn truncate(s: &str, n: usize) -> String {
+    if s.len() <= n {
+        s.to_string()
+    } else {
+        format!("{}...", &s[..n])
+    }
+}
+
+pub fn sanitize(s: &str) -> String {
+    let mut out = s.to_string();
+    for prefix in ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "sk-", "xoxb-", "xoxp-"] {
+        out = redact_prefixed(&out, prefix);
+    }
+    out = redact_kv(&out, "password");
+    out = redact_kv(&out, "token");
+    out = redact_kv(&out, "pat");
+    out
+}
