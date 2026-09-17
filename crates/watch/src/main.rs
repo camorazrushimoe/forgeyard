@@ -71,7 +71,7 @@ fn main() -> ExitCode {
             };
             let act = tick_one(&root, &p);
             println!("{act:?}");
-            if matches!(act, Action::BlockedOnSpec | Action::BlockedOnSpecRefresh) { Exit::Precondition.into() } else { Exit::Ok.into() }
+            if matches!(act, Action::BlockedOnSpec | Action::BlockedOnSpecRefresh | Action::BlockedOnError) { Exit::Precondition.into() } else { Exit::Ok.into() }
         }
         Some("loop") => {
             let root = factory_root();
