@@ -243,3 +243,61 @@ fn which_in(prefix: Option<&Path>, name: &str) -> Option<PathBuf> {
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bind::bind_project;
+    use crate::events::events_path;
+    use crate::sha256::sha256_hex;
+    use crate::state::load_state;
+    use crate::tokens::save_tokens;
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static N: AtomicU64 = AtomicU64::new(0);
+    fn tmp() -> PathBuf {
+        let n = N.fetch_add(1, Ordering::SeqCst);
+        let p = std::env::temp_dir().join(format!("fy-run-{}-{}", std::process::id(), n));
+        let _ = fs::remove_dir_all(&p);
+        fs::create_dir_all(&p).unwrap();
+        p
+    }
+    fn write_fake(dir: &Path, name: &str, body: &str) {
+        fs::create_dir_all(dir).unwrap();
+        let p = dir.join(name);
+        fs::write(&p, body).unwrap();
+        let mut perm = fs::metadata(&p).unwrap().permissions();
+        perm.set_mode(0o755);
+        fs::set_permissions(&p, perm).unwrap();
+    }
+    #[test]
+    fn missing_pi_is_runner_missing() {
+        let root = tmp();
+        bind_project(&root, "https://github.com/acme/toy").unwrap();
+        let mut t = Tokens::default();
+        t.set("llm.endpoint", "http://127.0.0.1:1/v1").unwrap();
+        save_tokens(&root, &t, "t").unwrap();
+        fs::create_dir_all(root.join("empty-bin")).unwrap();
+        let out = forge_run(&root, RunOpts {
+            project: "toy".into(), agent: Agent::TechPm, step: "review".into(),
+            workflow: "spec-review".into(), task: "x".into(), pack_dir: None,
+            path_prefix: Some(root.join("empty-bin")),
+        }).unwrap();
+        assert_eq!(out.status, "fail");
+        assert_eq!(out.summary, "runner_missing");
+        assert!(!load_state(&root, "toy").unwrap().is_busy());
+        let log = fs::read_to_string(events_path(&project_dir(&root, "toy"))).unwrap();
+        assert!(!log.contains("ghp_"));
+        assert!(log.contains("runner_missing"));
+    }
+    #[test]
+    fn outcome_text_pulls_kind_from_pi_event() {
+        let raw = r#"{"type":"session"}
+{"type":"message_end","message":{"content":[{"type":"text","text":"{\"kind\":\"qa\",\"pr\":3,\"verdict\":\"merge\",\"summary\":\"ok\"}"}]}}"#;
+        let flat = outcome_text(raw);
+        match parse_outcome(&flat).unwrap() {
+            Outcome::Qa { pr, .. } => assert_eq!(pr, 3),
+            other => panic!("{other:?}"),
+        }
+    }
+}
